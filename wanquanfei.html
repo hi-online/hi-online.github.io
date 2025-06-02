@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>完全非弹性碰撞演示</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .container {
+            position: relative;
+            width: 800px;
+            height: 300px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .ball {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            box-shadow: inset -5px -5px 10px rgba(0, 0, 0, 0.3);
+            top: 120px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-weight: bold;
+            font-size: 20px;
+            user-select: none;
+            transition: transform 0.2s;
+        }
+
+        #ballA {
+            left: 100px;
+            background: radial-gradient(circle at 30% 30%, #ff6b6b, #cc0000);
+            z-index: 2;
+        }
+
+        #ballB {
+            left: 400px;
+            background: radial-gradient(circle at 30% 30%, #6b6bff, #0000cc);
+            z-index: 2;
+        }
+
+        .combined-ball {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #cc0000, #0000cc);
+            top: 110px;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-weight: bold;
+            font-size: 24px;
+            z-index: 1;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+            justify-content: center;
+            max-width: 800px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+            min-width: 200px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        #resetBtn {
+            background-color: #f44336;
+        }
+
+        #resetBtn:hover {
+            background-color: #d32f2f;
+        }
+
+        .info-panel {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+            width: 800px;
+            margin-top: 20px;
+        }
+
+        .info-item {
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            justify-content: space-between;
+        }
+
+        label {
+            font-weight: bold;
+            margin-right: 10px;
+            min-width: 80px;
+        }
+
+        input[type="number"] {
+            width: 80px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .track {
+            position: absolute;
+            bottom: 50px;
+            width: 100%;
+            height: 3px;
+            background-color: #ddd;
+            z-index: 0;
+        }
+
+        .mass-label {
+            position: absolute;
+            bottom: -25px;
+            width: 100%;
+            text-align: center;
+            font-size: 14px;
+            color: #555;
+            font-weight: bold;
+        }
+
+        .velocity-arrow {
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-bottom: 15px solid #333;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%) rotate(0deg);
+            display: none;
+        }
+
+        .formula {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>完全非弹性碰撞演示</h1>
+    <h3>两球碰撞后会粘合在一起运动</h3>
+
+    <div class="controls">
+        <div class="control-group">
+            <h3>球A参数</h3>
+            <div class="input-group">
+                <label for="massA">质量 (kg):</label>
+                <input type="number" id="massA" value="2" min="0.1" max="10" step="0.1">
+            </div>
+            <div class="input-group">
+                <label for="speedA">速度 (m/s):</label>
+                <input type="number" id="speedA" value="5" min="0" max="20" step="0.1">
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h3>球B参数</h3>
+            <div class="input-group">
+                <label for="massB">质量 (kg):</label>
+                <input type="number" id="massB" value="1" min="0.1" max="10" step="0.1">
+            </div>
+            <div class="input-group">
+                <label for="speedB">速度 (m/s):</label>
+                <input type="number" id="speedB" value="0" min="0" max="20" step="0.1">
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h3>控制</h3>
+            <button id="startBtn">开始碰撞</button>
+            <button id="resetBtn">重置</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="track"></div>
+        <div class="ball" id="ballA">A
+            <div class="mass-label" id="massALabel">2kg</div>
+            <div class="velocity-arrow" id="arrowA"></div>
+        </div>
+        <div class="ball" id="ballB">B
+            <div class="mass-label" id="massBLabel">1kg</div>
+            <div class="velocity-arrow" id="arrowB"></div>
+        </div>
+        <div class="combined-ball" id="combinedBall">A+B
+            <div class="mass-label" id="combinedMassLabel">3kg</div>
+            <div class="velocity-arrow" id="arrowCombined"></div>
+        </div>
+    </div>
+
+    <div class="info-panel">
+        <h3>完全非弹性碰撞原理</h3>
+        <div class="info-item">• <strong>完全非弹性碰撞</strong>：两物体碰撞后粘合在一起运动，动能损失最大</div>
+
+        <div class="info-item">• <strong>动量守恒</strong>：碰撞前后系统总动量不变</div>
+        <div class="formula">
+            m₁v₁ + m₂v₂ = (m₁ + m₂)v'
+        </div>
+
+        <div class="info-item">• <strong>碰撞后共同速度</strong>：</div>
+        <div class="formula">
+            v' = (m₁v₁ + m₂v₂) / (m₁ + m₂)
+        </div>
+
+        <div class="info-item">• <strong>动能损失</strong>：碰撞后部分动能转化为内能等其他形式能量</div>
+        <div class="formula">
+            ΔE = ½m₁v₁² + ½m₂v₂² - ½(m₁+m₂)v'²
+        </div>
+
+        <div class="info-item" id="resultInfo">设置参数后点击"开始碰撞"按钮</div>
+        <div class="info-item" id="momentumInfo"></div>
+        <div class="info-item" id="energyInfo"></div>
+    </div>
+
+    <script>
+        // 获取DOM元素
+        const ballA = document.getElementById('ballA');
+        const ballB = document.getElementById('ballB');
+        const combinedBall = document.getElementById('combinedBall');
+        const startBtn = document.getElementById('startBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const speedAInput = document.getElementById('speedA');
+        const speedBInput = document.getElementById('speedB');
+        const massAInput = document.getElementById('massA');
+        const massBInput = document.getElementById('massB');
+        const massALabel = document.getElementById('massALabel');
+        const massBLabel = document.getElementById('massBLabel');
+        const combinedMassLabel = document.getElementById('combinedMassLabel');
+        const resultInfo = document.getElementById('resultInfo');
+        const momentumInfo = document.getElementById('momentumInfo');
+        const energyInfo = document.getElementById('energyInfo');
+        const arrowA = document.getElementById('arrowA');
+        const arrowB = document.getElementById('arrowB');
+        const arrowCombined = document.getElementById('arrowCombined');
+
+        // 动画变量
+        let animationId;
+        let ballAPosition = 100;
+        let ballBPosition = 400;
+        let ballAVelocity = 0;
+        let ballBVelocity = 0;
+        let combinedVelocity = 0;
+        let isAnimating = false;
+        let isCollided = false;
+        const ballRadius = 30;
+        const combinedRadius = 40;
+
+        // 更新质量显示
+        function updateMassLabels() {
+            const massA = parseFloat(massAInput.value) || 2;
+            const massB = parseFloat(massBInput.value) || 1;
+
+            massALabel.textContent = massA + "kg";
+            massBLabel.textContent = massB + "kg";
+            combinedMassLabel.textContent = (massA + massB) + "kg";
+        }
+
+        // 更新速度箭头
+        function updateArrows() {
+            const speedA = parseFloat(speedAInput.value) || 0;
+            const speedB = parseFloat(speedBInput.value) || 0;
+
+            arrowA.style.display = speedA !== 0 ? 'block' : 'none';
+            arrowB.style.display = speedB !== 0 ? 'block' : 'none';
+
+            if (speedA < 0) {
+                arrowA.style.transform = 'translateX(-50%) rotate(180deg)';
+            } else {
+                arrowA.style.transform = 'translateX(-50%) rotate(0deg)';
+            }
+
+            if (speedB < 0) {
+                arrowB.style.transform = 'translateX(-50%) rotate(180deg)';
+            } else {
+                arrowB.style.transform = 'translateX(-50%) rotate(0deg)';
+            }
+        }
+
+        // 重置模拟
+        function resetSimulation() {
+            cancelAnimationFrame(animationId);
+            isAnimating = false;
+            isCollided = false;
+            ballAPosition = 100;
+            ballBPosition = 400;
+            ballAVelocity = 0;
+            ballBVelocity = 0;
+
+            ballA.style.display = 'flex';
+            ballB.style.display = 'flex';
+            combinedBall.style.display = 'none';
+
+            updateMassLabels();
+            updateArrows();
+
+            resultInfo.textContent = "设置参数后点击\"开始碰撞\"按钮";
+            momentumInfo.textContent = "";
+            energyInfo.textContent = "";
+        }
+
+        // 更新球的位置
+        function updatePositions() {
+            if (!isCollided) {
+                ballA.style.left = ballAPosition + 'px';
+                ballB.style.left = ballBPosition + 'px';
+            } else {
+                combinedBall.style.left = (ballAPosition + ballBPosition) / 2 - combinedRadius + 'px';
+            }
+        }
+
+        // 计算碰撞后的共同速度
+        function calculateCombinedVelocity(m1, v1, m2, v2) {
+            return (m1 * v1 + m2 * v2) / (m1 + m2);
+        }
+
+        // 计算动能
+        function calculateKineticEnergy(m, v) {
+            return 0.5 * m * v * v;
+        }
+
+        // 开始模拟
+        function startSimulation() {
+            if (isAnimating) return;
+
+            const massA = parseFloat(massAInput.value) || 2;
+            const massB = parseFloat(massBInput.value) || 1;
+            const speedA = parseFloat(speedAInput.value) || 0;
+            const speedB = parseFloat(speedBInput.value) || 0;
+
+            ballAVelocity = speedA;
+            ballBVelocity = speedB;
+
+            // 计算初始动量和动能
+            const initialMomentum = massA * speedA + massB * speedB;
+            const initialKE = calculateKineticEnergy(massA, speedA) + calculateKineticEnergy(massB, speedB);
+
+            momentumInfo.textContent = `初始动量: ${initialMomentum.toFixed(2)} kg·m/s`;
+            energyInfo.textContent = `初始动能: ${initialKE.toFixed(2)} J`;
+
+            isAnimating = true;
+            isCollided = false;
+
+            updateArrows();
+            animate();
+        }
+
+        // 动画循环
+        function animate() {
+            const massA = parseFloat(massAInput.value) || 2;
+            const massB = parseFloat(massBInput.value) || 1;
+
+            if (!isCollided) {
+                ballAPosition += ballAVelocity;
+                ballBPosition += ballBVelocity;
+
+                // 检测碰撞
+                const distance = Math.abs(ballBPosition - ballAPosition);
+                if (distance < ballRadius * 2) {
+                    isCollided = true;
+
+                    // 计算碰撞后共同速度
+                    combinedVelocity = calculateCombinedVelocity(massA, ballAVelocity, massB, ballBVelocity);
+
+                    // 显示合并后的球
+                    ballA.style.display = 'none';
+                    ballB.style.display = 'none';
+                    combinedBall.style.display = 'flex';
+
+                    // 更新箭头
+                    arrowCombined.style.display = 'block';
+                    if (combinedVelocity < 0) {
+                        arrowCombined.style.transform = 'translateX(-50%) rotate(180deg)';
+                    } else {
+                        arrowCombined.style.transform = 'translateX(-50%) rotate(0deg)';
+                    }
+
+                    // 计算碰撞后动量和动能
+                    const finalMomentum = (massA + massB) * combinedVelocity;
+                    const finalKE = calculateKineticEnergy(massA + massB, combinedVelocity);
+                    const initialKE = calculateKineticEnergy(massA, ballAVelocity) + calculateKineticEnergy(massB, ballBVelocity);
+                    const energyLoss = initialKE - finalKE;
+
+                    resultInfo.innerHTML = `碰撞结果:<br>
+                    共同速度: ${combinedVelocity.toFixed(2)} m/s<br>
+                    动能损失: ${energyLoss.toFixed(2)} J (${((energyLoss / initialKE) * 100).toFixed(1)}%)`;
+
+                    momentumInfo.textContent += ` | 碰撞后动量: ${finalMomentum.toFixed(2)} kg·m/s`;
+                    energyInfo.textContent += ` | 碰撞后动能: ${finalKE.toFixed(2)} J`;
+                }
+            } else {
+                // 碰撞后运动
+                ballAPosition += combinedVelocity;
+                ballBPosition += combinedVelocity;
+            }
+
+            // 边界检查
+            const containerWidth = 800;
+            if (ballAPosition < -100 || ballAPosition > containerWidth + 100 ||
+                ballBPosition < -100 || ballBPosition > containerWidth + 100) {
+                isAnimating = false;
+                return;
+            }
+
+            updatePositions();
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // 事件监听
+        startBtn.addEventListener('click', startSimulation);
+        resetBtn.addEventListener('click', resetSimulation);
+        massAInput.addEventListener('input', updateMassLabels);
+        massBInput.addEventListener('input', updateMassLabels);
+        speedAInput.addEventListener('input', updateArrows);
+        speedBInput.addEventListener('input', updateArrows);
+
+        // 初始化
+        resetSimulation();
+    </script>
+</body>
+
+</html>
+
+<div style="position: fixed; top: 20px; right: 20px; z-index: 1000;">
+    <a href="bixiu2.html"><button>返回必修二</button></a>
+    <a href="index.html"><button>返回主页</button></a>
+</div>

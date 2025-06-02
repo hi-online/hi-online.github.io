@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>真实地球与卫星动画</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #000;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+
+        .scene {
+            position: relative;
+            width: 600px;
+            height: 600px;
+        }
+
+        .earth-container {
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            overflow: hidden;
+            box-shadow: 0 0 50px rgba(0, 102, 255, 0.5);
+        }
+
+        .earth {
+            width: 100%;
+            height: 100%;
+            background: url('https://upload.wikimedia.org/wikipedia/commons/9/97/The_Earth_seen_from_Apollo_17.jpg');
+            background-size: cover;
+            border-radius: 50%;
+            animation: earth-rotate 60s linear infinite;
+        }
+
+        .orbit {
+            position: absolute;
+            width: 450px;
+            height: 450px;
+            border: 1px dashed rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .satellite {
+            position: absolute;
+            font-size: 30px;
+            top: 50%;
+            left: 50%;
+            transform-origin: 0 0;
+            animation: orbit 8s linear infinite;
+        }
+
+        @keyframes earth-rotate {
+            from {
+                background-position: 0% center;
+            }
+
+            to {
+                background-position: -200% center;
+            }
+        }
+
+        @keyframes orbit {
+            from {
+                transform: rotate(0deg) translateX(225px) rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg) translateX(225px) rotate(-360deg);
+            }
+        }
+
+        .info {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            color: white;
+            font-size: 16px;
+        }
+
+        .controls {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            color: white;
+        }
+
+        .nav-buttons {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 10;
+        }
+
+        .nav-buttons button {
+            margin-left: 5px;
+        }
+
+        button {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid white;
+            border-radius: 4px;
+            padding: 5px 10px;
+            margin: 0 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="scene">
+        <div class="controls">
+            <button id="speedUp">加速</button>
+            <button id="slowDown">减速</button>
+            <button id="reverse">反向</button>
+        </div>
+
+        <div class="earth-container">
+            <div class="earth"></div>
+        </div>
+        <div class="orbit"></div>
+        <div class="satellite">🛰️</div>
+        <div class="info">真实地球自转与卫星轨道模拟 | 点击按钮控制动画</div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const satellite = document.querySelector('.satellite');
+            const earth = document.querySelector('.earth');
+            const speedUpBtn = document.getElementById('speedUp');
+            const slowDownBtn = document.getElementById('slowDown');
+            const reverseBtn = document.getElementById('reverse');
+
+            let orbitSpeed = 8;
+            let earthSpeed = 60;
+            let direction = 1;
+
+            // 更新动画速度
+            function updateAnimations() {
+                satellite.style.animation = `orbit ${orbitSpeed}s linear infinite`;
+                earth.style.animation = `earth-rotate ${earthSpeed}s linear infinite`;
+
+                if (direction === -1) {
+                    satellite.style.animationDirection = 'reverse';
+                    earth.style.animationDirection = 'reverse';
+                } else {
+                    satellite.style.animationDirection = 'normal';
+                    earth.style.animationDirection = 'normal';
+                }
+            }
+
+            // 加速
+            speedUpBtn.addEventListener('click', function () {
+                orbitSpeed = Math.max(1, orbitSpeed - 1);
+                earthSpeed = Math.max(10, earthSpeed - 10);
+                updateAnimations();
+            });
+
+            // 减速
+            slowDownBtn.addEventListener('click', function () {
+                orbitSpeed += 1;
+                earthSpeed += 10;
+                updateAnimations();
+            });
+
+            // 反向
+            reverseBtn.addEventListener('click', function () {
+                direction *= -1;
+                updateAnimations();
+            });
+
+            // 点击卫星改变大小
+            satellite.addEventListener('click', function (e) {
+                e.stopPropagation();
+                const sizes = ['20px', '30px', '40px', '50px'];
+                const currentSize = this.style.fontSize || '30px';
+                const nextIndex = (sizes.indexOf(currentSize) + 1) % sizes.length;
+                this.style.fontSize = sizes[nextIndex];
+            });
+
+            // 点击地球改变视角
+            document.querySelector('.earth-container').addEventListener('click', function () {
+                const earthSizes = ['200px', '300px', '400px'];
+                const currentSize = this.style.width || '300px';
+                const nextIndex = (earthSizes.indexOf(currentSize) + 1) % earthSizes.length;
+                this.style.width = earthSizes[nextIndex];
+                this.style.height = earthSizes[nextIndex];
+
+                // 调整轨道大小
+                const orbitSizes = ['350px', '450px', '550px'];
+                document.querySelector('.orbit').style.width = orbitSizes[nextIndex];
+                document.querySelector('.orbit').style.height = orbitSizes[nextIndex];
+
+                // 调整卫星轨道半径
+                const orbitRadius = parseInt(orbitSizes[nextIndex]) / 2;
+                const animation = `orbit ${orbitSpeed}s linear infinite`;
+                if (direction === -1) {
+                    satellite.style.animation = `${animation} reverse`;
+                } else {
+                    satellite.style.animation = animation;
+                }
+
+                // 更新关键帧
+                const styleSheet = document.styleSheets[0];
+                const rules = styleSheet.cssRules || styleSheet.rules;
+
+                for (let i = 0; i < rules.length; i++) {
+                    if (rules[i].name === 'orbit') {
+                        styleSheet.deleteRule(i);
+                        break;
+                    }
+                }
+
+                const orbitRule = `
+                    @keyframes orbit {
+                        from {
+                            transform: rotate(0deg) translateX(${orbitRadius}px) rotate(0deg);
+                        }
+                        to {
+                            transform: rotate(360deg) translateX(${orbitRadius}px) rotate(-360deg);
+                        }
+                    }
+                `;
+
+                styleSheet.insertRule(orbitRule, styleSheet.cssRules.length);
+            });
+        });
+    </script>
+</body>
+
+</html>
+
+<div style="position: fixed; top: 20px; right: 20px; z-index: 1000;">
+    <a href="bixiu2.html"><button>返回必修二</button></a>
+    <a href="index.html"><button>返回主页</button></a>
+</div>

@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>弹性碰撞演示 - 可调质量（大小不变）</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .container {
+            position: relative;
+            width: 800px;
+            height: 300px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .ball {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #ccc, #666);
+            box-shadow: inset -5px -5px 10px rgba(0, 0, 0, 0.3);
+            top: 120px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-weight: bold;
+            font-size: 20px;
+            user-select: none;
+        }
+
+        #ballA {
+            left: 100px;
+            background: radial-gradient(circle at 30% 30%, #ff6b6b, #cc0000);
+        }
+
+        #ballB {
+            left: 400px;
+            background: radial-gradient(circle at 30% 30%, #6b6bff, #0000cc);
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+        }
+
+        button {
+            padding: 8px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .info-panel {
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+            width: 800px;
+        }
+
+        .info-item {
+            margin-bottom: 8px;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        label {
+            min-width: 100px;
+        }
+
+        input[type="number"] {
+            width: 60px;
+            padding: 5px;
+            margin-left: 10px;
+        }
+
+        .track {
+            position: absolute;
+            bottom: 50px;
+            width: 100%;
+            height: 2px;
+            background-color: #ddd;
+        }
+
+        .mass-label {
+            position: absolute;
+            bottom: -25px;
+            width: 100%;
+            text-align: center;
+            font-size: 12px;
+            color: #333;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>弹性碰撞演示（可调质量，大小不变）</h1>
+
+    <div class="controls">
+        <div class="control-group">
+            <div class="input-group">
+                <label for="speedA">球A速度 (m/s):</label>
+                <input type="number" id="speedA" value="5" min="0" max="20">
+            </div>
+            <div class="input-group">
+                <label for="massA">球A质量 (kg):</label>
+                <input type="number" id="massA" value="1" min="0.1" max="10" step="0.1">
+            </div>
+        </div>
+
+        <div class="control-group">
+            <div class="input-group">
+                <label for="speedB">球B速度 (m/s):</label>
+                <input type="number" id="speedB" value="0" min="0" max="20">
+            </div>
+            <div class="input-group">
+                <label for="massB">球B质量 (kg):</label>
+                <input type="number" id="massB" value="1" min="0.1" max="10" step="0.1">
+            </div>
+        </div>
+
+        <div class="control-group">
+            <button id="startBtn">开始碰撞</button>
+            <button id="resetBtn">重置</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="track"></div>
+        <div class="ball" id="ballA">A
+            <div class="mass-label" id="massALabel">1kg</div>
+        </div>
+        <div class="ball" id="ballB">B
+            <div class="mass-label" id="massBLabel">1kg</div>
+        </div>
+    </div>
+
+    <div class="info-panel">
+        <h3>物理原理说明</h3>
+        <div class="info-item">• 弹性碰撞满足动量守恒和动能守恒</div>
+        <div class="info-item">• 动量守恒: m₁v₁ + m₂v₂ = m₁v₁' + m₂v₂'</div>
+        <div class="info-item">• 动能守恒: ½m₁v₁² + ½m₂v₂² = ½m₁v₁'² + ½m₂v₂'²</div>
+        <div class="info-item">• 碰撞后速度:
+            v₁' = [(m₁-m₂)v₁ + 2m₂v₂]/(m₁+m₂)
+            <br>
+            v₂' = [2m₁v₁ + (m₂-m₁)v₂]/(m₁+m₂)
+        </div>
+        <div class="info-item" id="resultInfo">等待碰撞...</div>
+    </div>
+
+    <script>
+        const ballA = document.getElementById('ballA');
+        const ballB = document.getElementById('ballB');
+        const startBtn = document.getElementById('startBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const speedAInput = document.getElementById('speedA');
+        const speedBInput = document.getElementById('speedB');
+        const massAInput = document.getElementById('massA');
+        const massBInput = document.getElementById('massB');
+        const massALabel = document.getElementById('massALabel');
+        const massBLabel = document.getElementById('massBLabel');
+        const resultInfo = document.getElementById('resultInfo');
+
+        let animationId;
+        let ballAPosition = 100;
+        let ballBPosition = 400;
+        let ballAVelocity = 0;
+        let ballBVelocity = 0;
+        let isAnimating = false;
+        const ballRadius = 30;
+
+        // 更新质量标签
+        function updateMassLabels() {
+            massALabel.textContent = massAInput.value + "kg";
+            massBLabel.textContent = massBInput.value + "kg";
+        }
+
+        // 重置位置
+        function resetPositions() {
+            cancelAnimationFrame(animationId);
+            isAnimating = false;
+            ballAPosition = 100;
+            ballBPosition = 400;
+            ballAVelocity = 0;
+            ballBVelocity = 0;
+            updateBallPositions();
+            updateMassLabels();
+            resultInfo.textContent = "等待碰撞...";
+        }
+
+        // 更新球的位置
+        function updateBallPositions() {
+            ballA.style.left = ballAPosition + 'px';
+            ballB.style.left = ballBPosition + 'px';
+        }
+
+        // 计算碰撞后的速度
+        function calculateAfterCollision(v1, v2, m1, m2) {
+            const v1f = ((m1 - m2) * v1 + 2 * m2 * v2) / (m1 + m2);
+            const v2f = (2 * m1 * v1 + (m2 - m1) * v2) / (m1 + m2);
+            return [v1f, v2f];
+        }
+
+        // 开始碰撞动画
+        function startCollision() {
+            if (isAnimating) return;
+
+            isAnimating = true;
+            const speedA = parseFloat(speedAInput.value) || 0;
+            const speedB = parseFloat(speedBInput.value) || 0;
+            const massA = parseFloat(massAInput.value) || 1;
+            const massB = parseFloat(massBInput.value) || 1;
+
+            ballAVelocity = speedA;
+            ballBVelocity = speedB;
+
+            updateMassLabels();
+
+            animate();
+        }
+
+        // 动画循环
+        function animate() {
+            const massA = parseFloat(massAInput.value) || 1;
+            const massB = parseFloat(massBInput.value) || 1;
+
+            ballAPosition += ballAVelocity;
+            ballBPosition += ballBVelocity;
+
+            // 检测碰撞
+            const distance = ballBPosition - ballAPosition;
+            if (distance < ballRadius * 2) {
+                // 计算碰撞后速度
+                [ballAVelocity, ballBVelocity] = calculateAfterCollision(
+                    ballAVelocity, ballBVelocity, massA, massB
+                );
+
+                // 防止球体重叠
+                ballAPosition = ballBPosition - ballRadius * 2;
+
+                // 显示碰撞结果
+                resultInfo.innerHTML = `碰撞结果:<br>
+                球A速度: ${ballAVelocity.toFixed(2)} m/s (质量: ${massA}kg)<br>
+                球B速度: ${ballBVelocity.toFixed(2)} m/s (质量: ${massB}kg)`;
+            }
+
+            // 边界检查
+            if (ballAPosition < 0) {
+                ballAPosition = 0;
+                ballAVelocity = 0;
+            }
+
+            const containerWidth = 800;
+            if (ballBPosition > containerWidth - ballRadius * 2) {
+                ballBPosition = containerWidth - ballRadius * 2;
+                ballBVelocity = 0;
+            }
+
+            // 停止条件
+            if ((Math.abs(ballAVelocity) < 0.01 && Math.abs(ballBVelocity) < 0.01) ||
+                (ballAPosition <= 0 && ballBPosition >= containerWidth - ballRadius * 2)) {
+                isAnimating = false;
+                return;
+            }
+
+            updateBallPositions();
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // 事件监听
+        startBtn.addEventListener('click', startCollision);
+        resetBtn.addEventListener('click', resetPositions);
+        massAInput.addEventListener('input', updateMassLabels);
+        massBInput.addEventListener('input', updateMassLabels);
+
+        // 初始化
+        resetPositions();
+    </script>
+</body>
+
+</html>
+
+<div style="position: fixed; top: 20px; right: 20px; z-index: 1000;">
+    <a href="bixiu2.html"><button>返回必修二</button></a>
+    <a href="index.html"><button>返回主页</button></a>
+</div>
