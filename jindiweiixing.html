@@ -1,255 +1,179 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html>
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>真实地球与卫星动画</title>
+    <title>卫星变轨动态图</title>
     <style>
         body {
             margin: 0;
-            padding: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            background-color: #000;
             overflow: hidden;
-            font-family: Arial, sans-serif;
+            background-color: black;
         }
 
-        .scene {
-            position: relative;
-            width: 600px;
-            height: 600px;
-        }
-
-        .earth-container {
-            position: absolute;
-            width: 300px;
-            height: 300px;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            border-radius: 50%;
-            overflow: hidden;
-            box-shadow: 0 0 50px rgba(0, 102, 255, 0.5);
-        }
-
-        .earth {
-            width: 100%;
-            height: 100%;
-            background: url('https://upload.wikimedia.org/wikipedia/commons/9/97/The_Earth_seen_from_Apollo_17.jpg');
-            background-size: cover;
-            border-radius: 50%;
-            animation: earth-rotate 60s linear infinite;
-        }
-
-        .orbit {
-            position: absolute;
-            width: 450px;
-            height: 450px;
-            border: 1px dashed rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-        }
-
-        .satellite {
-            position: absolute;
-            font-size: 30px;
-            top: 50%;
-            left: 50%;
-            transform-origin: 0 0;
-            animation: orbit 8s linear infinite;
-        }
-
-        @keyframes earth-rotate {
-            from {
-                background-position: 0% center;
-            }
-
-            to {
-                background-position: -200% center;
-            }
-        }
-
-        @keyframes orbit {
-            from {
-                transform: rotate(0deg) translateX(225px) rotate(0deg);
-            }
-
-            to {
-                transform: rotate(360deg) translateX(225px) rotate(-360deg);
-            }
-        }
-
-        .info {
-            position: absolute;
-            bottom: 20px;
-            left: 0;
-            width: 100%;
-            text-align: center;
-            color: white;
-            font-size: 16px;
-        }
-
-        .controls {
-            position: absolute;
-            top: 20px;
-            left: 0;
-            width: 100%;
-            text-align: center;
-            color: white;
-        }
-
-        .nav-buttons {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            z-index: 10;
-        }
-
-        .nav-buttons button {
-            margin-left: 5px;
-        }
-
-        button {
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            border: 1px solid white;
-            border-radius: 4px;
-            padding: 5px 10px;
-            margin: 0 5px;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background: rgba(255, 255, 255, 0.3);
+        canvas {
+            display: block;
         }
     </style>
 </head>
 
 <body>
-    <div class="scene">
-        <div class="controls">
-            <button id="speedUp">加速</button>
-            <button id="slowDown">减速</button>
-            <button id="reverse">反向</button>
-        </div>
-
-        <div class="earth-container">
-            <div class="earth"></div>
-        </div>
-        <div class="orbit"></div>
-        <div class="satellite">🛰️</div>
-        <div class="info">真实地球自转与卫星轨道模拟 | 点击按钮控制动画</div>
+    <canvas id="earthCanvas"></canvas>
+    <canvas id="satelliteCanvas" style="position: absolute; top: 0; left: 0;"></canvas>
+    <div style="position: absolute; top: 10px; left: 10px; color: white;">
+        增加速度比例: <input type="number" id="speedRatio" value="1.1" step="0.1">
+        <button onclick="accelerateSatellite()">加速</button>
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const satellite = document.querySelector('.satellite');
-            const earth = document.querySelector('.earth');
-            const speedUpBtn = document.getElementById('speedUp');
-            const slowDownBtn = document.getElementById('slowDown');
-            const reverseBtn = document.getElementById('reverse');
+        const earthCanvas = document.getElementById('earthCanvas');
+        const satelliteCanvas = document.getElementById('satelliteCanvas');
+        const earthCtx = earthCanvas.getContext('2d');
+        const satelliteCtx = satelliteCanvas.getContext('2d');
+        const speedRatioInput = document.getElementById('speedRatio');
 
-            let orbitSpeed = 8;
-            let earthSpeed = 60;
-            let direction = 1;
+        const earthRadiusPixels = 100; // 地球半径 (像素)
+        const earthRadiusMeters = 6371e3; // 地球半径 (米)
+        const satelliteInitialAltitudeRatio = 0.2; // 初始轨道高度是地球半径的比例
+        const satelliteInitialRadiusMeters = earthRadiusMeters * (1 + satelliteInitialAltitudeRatio);
+        const satelliteInitialRadiusPixels = earthRadiusPixels * (1 + satelliteInitialAltitudeRatio);
 
-            // 更新动画速度
-            function updateAnimations() {
-                satellite.style.animation = `orbit ${orbitSpeed}s linear infinite`;
-                earth.style.animation = `earth-rotate ${earthSpeed}s linear infinite`;
+        const G = 6.674e-11; // 万有引力常量 (N m^2/kg^2)
+        const earthMass = 5.972e24; // 地球质量 (kg)
+        const satelliteMass = 1; // 卫星质量 (简化)
+        const deltaTime = 0.5; // 可以调整时间步长，影响精度和速度
 
-                if (direction === -1) {
-                    satellite.style.animationDirection = 'reverse';
-                    earth.style.animationDirection = 'reverse';
-                } else {
-                    satellite.style.animationDirection = 'normal';
-                    earth.style.animationDirection = 'normal';
-                }
+        let satelliteAngle = 0;
+        let satellitePositionX;
+        let satellitePositionY;
+        let satelliteVelocityX = 0;
+        let satelliteVelocityY = 0;
+        let isAccelerated = false;
+
+        let animationFrameId;
+        let trajectory = []; // 存储卫星轨迹
+
+        // 像素到米的转换比例
+        const pixelsToMetersRatio = earthRadiusMeters / earthRadiusPixels;
+        const metersToPixelsRatio = 1 / pixelsToMetersRatio;
+
+        const earthImageUrl = 'https://upload.wikimedia.org/wikipedia/commons/9/97/The_Earth_seen_from_Apollo_17.jpg';
+        let earthImage = new Image();
+        earthImage.src = earthImageUrl;
+
+        function resizeCanvas() {
+            earthCanvas.width = window.innerWidth;
+            earthCanvas.height = window.innerHeight;
+            satelliteCanvas.width = window.innerWidth;
+            satelliteCanvas.height = window.innerHeight;
+            draw();
+        }
+
+        function getCanvasCenter() {
+            return { x: earthCanvas.width / 2, y: earthCanvas.height / 2 };
+        }
+
+        function calculateCircularOrbitSpeed() {
+            // 实际速度公式: v = sqrt(GM/r)
+            return Math.sqrt(G * earthMass / satelliteInitialRadiusMeters);
+        }
+
+        function initializeSatellite() {
+            const center = getCanvasCenter();
+            satelliteAngle = 0;
+            const initialSatelliteRadiusPixels = satelliteInitialRadiusPixels;
+            satellitePositionX = center.x + initialSatelliteRadiusPixels * Math.cos(satelliteAngle);
+            satellitePositionY = center.y + initialSatelliteRadiusPixels * Math.sin(satelliteAngle);
+            const circularOrbitSpeed = calculateCircularOrbitSpeed();
+
+            // 将实际速度转换为像素速度 (需要考虑时间步长)
+            const circularOrbitSpeedPixelsPerSecond = circularOrbitSpeed * metersToPixelsRatio;
+            // 假设每帧代表 1 秒 (可以根据 deltaTime 调整)
+            satelliteVelocityX = circularOrbitSpeedPixelsPerSecond * Math.sin(satelliteAngle);
+            satelliteVelocityY = -circularOrbitSpeedPixelsPerSecond * Math.cos(satelliteAngle);
+
+            isAccelerated = false;
+            trajectory = [{ x: satellitePositionX, y: satellitePositionY }];
+        }
+
+        function accelerateSatellite() {
+            if (isAccelerated) return;
+            isAccelerated = true;
+            const speedRatio = parseFloat(speedRatioInput.value);
+            satelliteVelocityX *= speedRatio;
+            satelliteVelocityY *= speedRatio;
+        }
+
+        function updateSatellitePosition() {
+            const center = getCanvasCenter();
+            trajectory.push({ x: satellitePositionX, y: satellitePositionY });
+
+            const dx = center.x - satellitePositionX;
+            const dy = center.y - satellitePositionY;
+            const distancePixels = Math.sqrt(dx * dx + dy * dy);
+            const distanceMeters = distancePixels * pixelsToMetersRatio;
+
+            if (distanceMeters > 0) {
+                const forceMagnitude = G * earthMass * satelliteMass / (distanceMeters * distanceMeters);
+                const forceX = forceMagnitude * dx / distancePixels;
+                const forceY = forceMagnitude * dy / distancePixels;
+
+                const accelerationX = forceX / satelliteMass;
+                const accelerationY = forceY / satelliteMass;
+
+                satelliteVelocityX += accelerationX * deltaTime * metersToPixelsRatio;
+                satelliteVelocityY += accelerationY * deltaTime * metersToPixelsRatio;
+
+                satellitePositionX += satelliteVelocityX * deltaTime;
+                satellitePositionY += satelliteVelocityY * deltaTime;
+
+                satelliteAngle = Math.atan2(satellitePositionY - center.y, satellitePositionX - center.x);
             }
+        }
 
-            // 加速
-            speedUpBtn.addEventListener('click', function () {
-                orbitSpeed = Math.max(1, orbitSpeed - 1);
-                earthSpeed = Math.max(10, earthSpeed - 10);
-                updateAnimations();
-            });
+        function drawEarth() {
+            const center = getCanvasCenter();
+            earthCtx.clearRect(0, 0, earthCanvas.width, earthCanvas.height);
+            earthCtx.drawImage(earthImage, center.x - earthRadiusPixels, center.y - earthRadiusPixels, 2 * earthRadiusPixels, 2 * earthRadiusPixels);
+        }
 
-            // 减速
-            slowDownBtn.addEventListener('click', function () {
-                orbitSpeed += 1;
-                earthSpeed += 10;
-                updateAnimations();
-            });
+        function drawSatellite() {
+            satelliteCtx.clearRect(0, 0, satelliteCanvas.width, satelliteCanvas.height);
 
-            // 反向
-            reverseBtn.addEventListener('click', function () {
-                direction *= -1;
-                updateAnimations();
-            });
+            // 绘制轨迹
+            satelliteCtx.beginPath();
+            for (let i = 0; i < trajectory.length; i++) {
+                satelliteCtx.lineTo(trajectory[i].x, trajectory[i].y);
+            }
+            satelliteCtx.strokeStyle = 'yellow';
+            satelliteCtx.lineWidth = 1;
+            satelliteCtx.stroke();
 
-            // 点击卫星改变大小
-            satellite.addEventListener('click', function (e) {
-                e.stopPropagation();
-                const sizes = ['20px', '30px', '40px', '50px'];
-                const currentSize = this.style.fontSize || '30px';
-                const nextIndex = (sizes.indexOf(currentSize) + 1) % sizes.length;
-                this.style.fontSize = sizes[nextIndex];
-            });
+            // 绘制卫星
+            satelliteCtx.font = '20px sans-serif';
+            satelliteCtx.fillStyle = 'white';
+            satelliteCtx.fillText('🛰️', satellitePositionX - 10, satellitePositionY + 7);
+        }
 
-            // 点击地球改变视角
-            document.querySelector('.earth-container').addEventListener('click', function () {
-                const earthSizes = ['200px', '300px', '400px'];
-                const currentSize = this.style.width || '300px';
-                const nextIndex = (earthSizes.indexOf(currentSize) + 1) % earthSizes.length;
-                this.style.width = earthSizes[nextIndex];
-                this.style.height = earthSizes[nextIndex];
+        function draw() {
+            drawEarth();
+            drawSatellite();
+        }
 
-                // 调整轨道大小
-                const orbitSizes = ['350px', '450px', '550px'];
-                document.querySelector('.orbit').style.width = orbitSizes[nextIndex];
-                document.querySelector('.orbit').style.height = orbitSizes[nextIndex];
+        function animate() {
+            updateSatellitePosition();
+            draw();
+            animationFrameId = requestAnimationFrame(animate);
+        }
 
-                // 调整卫星轨道半径
-                const orbitRadius = parseInt(orbitSizes[nextIndex]) / 2;
-                const animation = `orbit ${orbitSpeed}s linear infinite`;
-                if (direction === -1) {
-                    satellite.style.animation = `${animation} reverse`;
-                } else {
-                    satellite.style.animation = animation;
-                }
+        earthImage.onload = () => {
+            resizeCanvas();
+            initializeSatellite();
+            animate();
+        };
 
-                // 更新关键帧
-                const styleSheet = document.styleSheets[0];
-                const rules = styleSheet.cssRules || styleSheet.rules;
-
-                for (let i = 0; i < rules.length; i++) {
-                    if (rules[i].name === 'orbit') {
-                        styleSheet.deleteRule(i);
-                        break;
-                    }
-                }
-
-                const orbitRule = `
-                    @keyframes orbit {
-                        from {
-                            transform: rotate(0deg) translateX(${orbitRadius}px) rotate(0deg);
-                        }
-                        to {
-                            transform: rotate(360deg) translateX(${orbitRadius}px) rotate(-360deg);
-                        }
-                    }
-                `;
-
-                styleSheet.insertRule(orbitRule, styleSheet.cssRules.length);
-            });
-        });
+        window.addEventListener('resize', resizeCanvas);
     </script>
+
 </body>
 
 </html>

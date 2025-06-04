@@ -14,6 +14,7 @@
             align-items: center;
             background-color: #f0f0f0;
             font-family: Arial, sans-serif;
+            position: relative;
         }
 
         h1 {
@@ -60,22 +61,6 @@
             left: 400px;
             background: radial-gradient(circle at 30% 30%, #6b6bff, #0000cc);
             z-index: 2;
-        }
-
-        .combined-ball {
-            position: absolute;
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #cc0000, #0000cc);
-            top: 110px;
-            display: none;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            font-weight: bold;
-            font-size: 24px;
-            z-index: 1;
         }
 
         .controls {
@@ -196,12 +181,48 @@
             margin: 10px 0;
             overflow-x: auto;
         }
+
+        .nav-buttons {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            gap: 10px;
+        }
+
+        .nav-buttons a {
+            text-decoration: none;
+        }
+
+        .nav-buttons button {
+            background-color: #2196F3;
+            margin: 0;
+        }
+
+        .nav-buttons button:hover {
+            background-color: #0b7dda;
+        }
+
+        .connected-line {
+            position: absolute;
+            height: 4px;
+            background-color: #888;
+            top: 150px;
+            z-index: 1;
+            display: none;
+        }
     </style>
 </head>
 
 <body>
+    <div class="nav-buttons">
+        <a href="bixiu2.html"><button>返回必修二</button></a>
+        <a href="index.html"><button>返回主页</button></a>
+    </div>
+
     <h1>完全非弹性碰撞演示</h1>
-    <h3>两球碰撞后会粘合在一起运动</h3>
+    <h3>两球碰撞后会粘合在一起运动但保持各自形状</h3>
 
     <div class="controls">
         <div class="control-group">
@@ -237,17 +258,13 @@
 
     <div class="container">
         <div class="track"></div>
+        <div class="connected-line" id="connectedLine"></div>
         <div class="ball" id="ballA">A
             <div class="mass-label" id="massALabel">2kg</div>
-            <div class="velocity-arrow" id="arrowA"></div>
         </div>
         <div class="ball" id="ballB">B
             <div class="mass-label" id="massBLabel">1kg</div>
             <div class="velocity-arrow" id="arrowB"></div>
-        </div>
-        <div class="combined-ball" id="combinedBall">A+B
-            <div class="mass-label" id="combinedMassLabel">3kg</div>
-            <div class="velocity-arrow" id="arrowCombined"></div>
         </div>
     </div>
 
@@ -279,7 +296,7 @@
         // 获取DOM元素
         const ballA = document.getElementById('ballA');
         const ballB = document.getElementById('ballB');
-        const combinedBall = document.getElementById('combinedBall');
+        const connectedLine = document.getElementById('connectedLine');
         const startBtn = document.getElementById('startBtn');
         const resetBtn = document.getElementById('resetBtn');
         const speedAInput = document.getElementById('speedA');
@@ -288,13 +305,10 @@
         const massBInput = document.getElementById('massB');
         const massALabel = document.getElementById('massALabel');
         const massBLabel = document.getElementById('massBLabel');
-        const combinedMassLabel = document.getElementById('combinedMassLabel');
         const resultInfo = document.getElementById('resultInfo');
         const momentumInfo = document.getElementById('momentumInfo');
         const energyInfo = document.getElementById('energyInfo');
-        const arrowA = document.getElementById('arrowA');
         const arrowB = document.getElementById('arrowB');
-        const arrowCombined = document.getElementById('arrowCombined');
 
         // 动画变量
         let animationId;
@@ -306,7 +320,7 @@
         let isAnimating = false;
         let isCollided = false;
         const ballRadius = 30;
-        const combinedRadius = 40;
+        const ballDiameter = ballRadius * 2;
 
         // 更新质量显示
         function updateMassLabels() {
@@ -315,27 +329,34 @@
 
             massALabel.textContent = massA + "kg";
             massBLabel.textContent = massB + "kg";
-            combinedMassLabel.textContent = (massA + massB) + "kg";
         }
 
         // 更新速度箭头
         function updateArrows() {
-            const speedA = parseFloat(speedAInput.value) || 0;
             const speedB = parseFloat(speedBInput.value) || 0;
 
-            arrowA.style.display = speedA !== 0 ? 'block' : 'none';
             arrowB.style.display = speedB !== 0 ? 'block' : 'none';
-
-            if (speedA < 0) {
-                arrowA.style.transform = 'translateX(-50%) rotate(180deg)';
-            } else {
-                arrowA.style.transform = 'translateX(-50%) rotate(0deg)';
-            }
 
             if (speedB < 0) {
                 arrowB.style.transform = 'translateX(-50%) rotate(180deg)';
             } else {
                 arrowB.style.transform = 'translateX(-50%) rotate(0deg)';
+            }
+        }
+
+        // 更新连接线
+        function updateConnectedLine() {
+            if (isCollided) {
+                const leftBall = ballAPosition < ballBPosition ? ballA : ballB;
+                const rightBall = ballAPosition < ballBPosition ? ballB : ballA;
+                const leftPos = parseFloat(leftBall.style.left) + ballRadius;
+                const rightPos = parseFloat(rightBall.style.left) + ballRadius;
+
+                connectedLine.style.left = leftPos + 'px';
+                connectedLine.style.width = (rightPos - leftPos) + 'px';
+                connectedLine.style.display = 'block';
+            } else {
+                connectedLine.style.display = 'none';
             }
         }
 
@@ -351,10 +372,11 @@
 
             ballA.style.display = 'flex';
             ballB.style.display = 'flex';
-            combinedBall.style.display = 'none';
+            connectedLine.style.display = 'none';
 
             updateMassLabels();
             updateArrows();
+            updatePositions();
 
             resultInfo.textContent = "设置参数后点击\"开始碰撞\"按钮";
             momentumInfo.textContent = "";
@@ -363,12 +385,9 @@
 
         // 更新球的位置
         function updatePositions() {
-            if (!isCollided) {
-                ballA.style.left = ballAPosition + 'px';
-                ballB.style.left = ballBPosition + 'px';
-            } else {
-                combinedBall.style.left = (ballAPosition + ballBPosition) / 2 - combinedRadius + 'px';
-            }
+            ballA.style.left = ballAPosition + 'px';
+            ballB.style.left = ballBPosition + 'px';
+            updateConnectedLine();
         }
 
         // 计算碰撞后的共同速度
@@ -418,23 +437,17 @@
 
                 // 检测碰撞
                 const distance = Math.abs(ballBPosition - ballAPosition);
-                if (distance < ballRadius * 2) {
+                if (distance < ballDiameter) {
                     isCollided = true;
 
                     // 计算碰撞后共同速度
                     combinedVelocity = calculateCombinedVelocity(massA, ballAVelocity, massB, ballBVelocity);
 
-                    // 显示合并后的球
-                    ballA.style.display = 'none';
-                    ballB.style.display = 'none';
-                    combinedBall.style.display = 'flex';
-
-                    // 更新箭头
-                    arrowCombined.style.display = 'block';
-                    if (combinedVelocity < 0) {
-                        arrowCombined.style.transform = 'translateX(-50%) rotate(180deg)';
+                    // 确保两球刚好接触
+                    if (ballAPosition < ballBPosition) {
+                        ballBPosition = ballAPosition + ballDiameter;
                     } else {
-                        arrowCombined.style.transform = 'translateX(-50%) rotate(0deg)';
+                        ballAPosition = ballBPosition + ballDiameter;
                     }
 
                     // 计算碰撞后动量和动能
@@ -451,15 +464,17 @@
                     energyInfo.textContent += ` | 碰撞后动能: ${finalKE.toFixed(2)} J`;
                 }
             } else {
-                // 碰撞后运动
+                // 碰撞后运动 - 两球一起移动
                 ballAPosition += combinedVelocity;
                 ballBPosition += combinedVelocity;
             }
 
             // 边界检查
             const containerWidth = 800;
-            if (ballAPosition < -100 || ballAPosition > containerWidth + 100 ||
-                ballBPosition < -100 || ballBPosition > containerWidth + 100) {
+            if ((ballAPosition < -100 && ballAPosition < ballBPosition) ||
+                (ballAPosition > containerWidth + 100 && ballAPosition > ballBPosition) ||
+                (ballBPosition < -100 && ballBPosition < ballAPosition) ||
+                (ballBPosition > containerWidth + 100 && ballBPosition > ballAPosition)) {
                 isAnimating = false;
                 return;
             }
@@ -473,7 +488,6 @@
         resetBtn.addEventListener('click', resetSimulation);
         massAInput.addEventListener('input', updateMassLabels);
         massBInput.addEventListener('input', updateMassLabels);
-        speedAInput.addEventListener('input', updateArrows);
         speedBInput.addEventListener('input', updateArrows);
 
         // 初始化
@@ -482,8 +496,3 @@
 </body>
 
 </html>
-
-<div style="position: fixed; top: 20px; right: 20px; z-index: 1000;">
-    <a href="bixiu2.html"><button>返回必修二</button></a>
-    <a href="index.html"><button>返回主页</button></a>
-</div>

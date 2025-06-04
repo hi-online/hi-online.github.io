@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <title>炮弹爆炸模拟 (单位: kg, m/s)</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+            position: relative;
+            /* Added for absolute positioning context of nav buttons */
+        }
+
+        .navigation-buttons {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            /* Space between buttons */
+            z-index: 1000;
+            /* Ensure they are on top */
+        }
+
+        .navigation-buttons a button {
+            /* Styling the button inside the anchor */
+            padding: 8px 12px;
+            font-size: 14px;
+            /* Consistent font size */
+            cursor: pointer;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background-color: #f0f0f0;
+            color: #333;
+            text-decoration: none;
+            /* Buttons don't need text-decoration */
+        }
+
+        .navigation-buttons a button:hover {
+            background-color: #e0e0e0;
+        }
+
+        canvas {
+            border: 1px solid black;
+            margin-bottom: 20px;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+            width: 450px;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+
+        .control-group {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .control-group label {
+            margin-right: 10px;
+            font-size: 0.9em;
+            min-width: 180px;
+        }
+
+        .control-group input[type="range"] {
+            flex-grow: 1;
+            margin-right: 10px;
+        }
+
+        .control-group span {
+            font-weight: bold;
+            min-width: 30px;
+            text-align: right;
+        }
+
+        .main-action-buttons button {
+            /* Renamed class for main Explode/Reset buttons */
+            padding: 10px 18px;
+            margin-right: 10px;
+            font-size: 1em;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            color: white;
+        }
+
+        #explodeBtn {
+            background-color: #d9534f;
+        }
+
+        #explodeBtn:disabled {
+            background-color: #aaa;
+        }
+
+        #resetBtn {
+            background-color: #5cb85c;
+        }
+
+        #warning {
+            color: red;
+            font-size: 0.9em;
+            height: 1.2em;
+            margin-top: 5px;
+        }
+
+        h2 {
+            margin-bottom: 15px;
+            margin-top: 50px;
+            /* Added margin-top to avoid overlap with nav buttons */
+        }
+    </style>
+</head>
+
+<body>
+    <div class="navigation-buttons">
+        <a href="bixiu2.html"><button>返回必修二</button></a>
+        <a href="index.html"><button>返回主页</button></a>
+    </div>
+
+    <h2>炮弹爆炸模拟 🚀 (单位: kg, m/s)</h2>
+    <canvas id="simulationCanvas" width="800" height="300"></canvas>
+    <div class="controls">
+        <div class="control-group">
+            <label for="mass1Ratio">前部质量占比 (m1/M):</label>
+            <input type="range" id="mass1Ratio" min="0.05" max="0.95" step="0.01" value="0.5">
+            <span id="mass1RatioValue">0.50</span>
+        </div>
+        <div class="control-group">
+            <label for="energyIncrease">机械能增加比例 (k):</label>
+            <input type="range" id="energyIncrease" min="0" max="2" step="0.01" value="0.5">
+            <span id="energyIncreaseValue">0.50</span>
+        </div>
+    </div>
+    <div class="main-action-buttons">
+        <button id="explodeBtn">爆炸 (Explode)</button>
+        <button id="resetBtn">重置 (Reset)</button>
+    </div>
+    <p id="warning"></p>
+
+    <script>
+        const canvas = document.getElementById('simulationCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const mass1RatioSlider = document.getElementById('mass1Ratio');
+        const mass1RatioValueSpan = document.getElementById('mass1RatioValue');
+        const energyIncreaseSlider = document.getElementById('energyIncrease');
+        const energyIncreaseValueSpan = document.getElementById('energyIncreaseValue');
+        const explodeBtn = document.getElementById('explodeBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const warningP = document.getElementById('warning');
+
+        const M_INITIAL = 10; // 概念上的总质量, 单位视为 kg
+        const V_INITIAL = 80; // 像素/秒 (内部计算用初始速度)
+        const L_INITIAL = 100; // 像素 (初始长度)
+        const H_INITIAL = 40;  // 像素 (初始高度)
+        const Y_POS = canvas.height / 2 - H_INITIAL / 2 - 20; // 初始Y坐标
+
+        const PIXELS_PER_METER = 10; // 定义多少像素代表1米，用于显示换算
+
+        let projectile = {};
+        let animationFrameId;
+        let lastTimestamp = 0;
+        let simulationRunning = false;
+
+        function getDefaultProjectileState() {
+            return {
+                x: 50,
+                y: Y_POS,
+                L: L_INITIAL,
+                H: H_INITIAL,
+                vx: V_INITIAL, // 内部速度单位仍为 px/s
+                mass: M_INITIAL, // 内部质量单位视为 kg
+                isExploded: false,
+                parts: [],
+                color: '#555'
+            };
+        }
+
+        function updateSliderValues() {
+            mass1RatioValueSpan.textContent = parseFloat(mass1RatioSlider.value).toFixed(2);
+            energyIncreaseValueSpan.textContent = parseFloat(energyIncreaseSlider.value).toFixed(2);
+        }
+
+        mass1RatioSlider.addEventListener('input', updateSliderValues);
+        energyIncreaseSlider.addEventListener('input', updateSliderValues);
+
+        function resetSimulation() {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+            projectile = getDefaultProjectileState();
+            lastTimestamp = 0;
+            simulationRunning = true;
+            explodeBtn.disabled = false;
+            warningP.textContent = "";
+            updateSliderValues();
+            drawSimulation();
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        function triggerExplosion() {
+            if (projectile.isExploded || !simulationRunning) return;
+
+            const m1Ratio = parseFloat(mass1RatioSlider.value);
+            const kFactor = parseFloat(energyIncreaseSlider.value);
+
+            const mTotal = projectile.mass;
+            const m1 = mTotal * m1Ratio;
+            const m2 = mTotal * (1 - m1Ratio);
+
+            warningP.textContent = "";
+
+            const v0 = projectile.vx;
+
+            let v1, v2;
+
+            const sqrtTerm1 = (m1 > 0 && kFactor > 0) ? Math.sqrt(kFactor * m2 / m1) : 0;
+            const sqrtTerm2 = (m2 > 0 && kFactor > 0) ? Math.sqrt(kFactor * m1 / m2) : 0;
+
+            v1 = v0 * (1 + sqrtTerm1);
+            v2 = v0 * (1 - sqrtTerm2);
+
+            const L1 = projectile.L * (m1 / mTotal);
+            const L2 = projectile.L * (m2 / mTotal);
+
+            const explosionPointX = projectile.x;
+
+            projectile.isExploded = true;
+            projectile.parts = [
+                {
+                    x: explosionPointX + L2,
+                    y: projectile.y,
+                    L: L1,
+                    H: projectile.H,
+                    vx: v1, // 内部速度单位 px/s
+                    mass: m1, // 内部质量单位 kg
+                    color: 'rgba(70, 130, 180, 0.9)'
+                },
+                {
+                    x: explosionPointX,
+                    y: projectile.y,
+                    L: L2,
+                    H: projectile.H,
+                    vx: v2, // 内部速度单位 px/s
+                    mass: m2, // 内部质量单位 kg
+                    color: 'rgba(255, 99, 71, 0.9)'
+                }
+            ];
+            explodeBtn.disabled = true;
+        }
+
+        explodeBtn.addEventListener('click', triggerExplosion);
+        resetBtn.addEventListener('click', resetSimulation);
+
+        function updatePositions(dt) {
+            if (!simulationRunning || dt <= 0) return;
+
+            if (!projectile.isExploded) {
+                projectile.x += projectile.vx * dt;
+                if (projectile.vx > 0 && projectile.x > canvas.width + L_INITIAL * 2) {
+                    simulationRunning = false;
+                } else if (projectile.vx < 0 && projectile.x + projectile.L < -L_INITIAL * 2) {
+                    simulationRunning = false;
+                }
+            } else {
+                let anyPartOnScreen = false;
+                projectile.parts.forEach(part => {
+                    part.x += part.vx * dt;
+                    if (part.x + part.L > -L_INITIAL && part.x < canvas.width + L_INITIAL) {
+                        anyPartOnScreen = true;
+                    }
+                });
+                if (!anyPartOnScreen && projectile.parts.length > 0) {
+                    simulationRunning = false;
+                }
+            }
+        }
+
+        function drawSimulation() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.beginPath();
+            ctx.moveTo(0, Y_POS + H_INITIAL + 10);
+            ctx.lineTo(canvas.width, Y_POS + H_INITIAL + 10);
+            ctx.strokeStyle = '#2E8B57';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            if (!simulationRunning && !projectile.isExploded && projectile.vx === 0 && projectile.x === 50) {
+                ctx.font = "bold 20px Arial";
+                ctx.textAlign = "center";
+                ctx.fillStyle = "#333";
+                ctx.fillText("请点击 '重置' 按钮开始模拟", canvas.width / 2, canvas.height / 3);
+                return;
+            }
+
+            ctx.font = "12px Arial";
+            ctx.textAlign = "center";
+
+            if (!projectile.isExploded) {
+                ctx.fillStyle = projectile.color;
+                ctx.fillRect(projectile.x, projectile.y, projectile.L, projectile.H);
+
+                ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                ctx.fillRect(projectile.x + projectile.L - Math.min(5, projectile.L * 0.1), projectile.y, Math.min(5, projectile.L * 0.1), projectile.H);
+
+                const massText = `质量: ${projectile.mass.toFixed(2)} kg`;
+                const displayedVx = (projectile.vx / PIXELS_PER_METER).toFixed(2);
+                const velText = `速度: ${displayedVx} m/s`;
+                ctx.fillStyle = "black";
+                ctx.fillText(massText, projectile.x + projectile.L / 2, projectile.y - 20);
+                ctx.fillText(velText, projectile.x + projectile.L / 2, projectile.y - 5);
+
+            } else {
+                projectile.parts.forEach((part, index) => {
+                    if (part.L > 0) {
+                        ctx.fillStyle = part.color;
+                        ctx.fillRect(part.x, part.y, part.L, part.H);
+
+                        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                        ctx.fillRect(part.x + part.L - Math.min(3, part.L * 0.1), part.y, Math.min(3, part.L * 0.1), part.H);
+
+                        const label = (index === 0) ? "1 (前部)" : "2 (后部)";
+                        const massText = `质量 ${label}: ${part.mass.toFixed(2)} kg`;
+                        const displayedPartVx = (part.vx / PIXELS_PER_METER).toFixed(2);
+                        const velText = `速度 ${label}: ${displayedPartVx} m/s`;
+
+                        ctx.fillStyle = "black";
+                        ctx.fillText(massText, part.x + part.L / 2, part.y - 20);
+                        ctx.fillText(velText, part.x + part.L / 2, part.y - 5);
+                    }
+                });
+            }
+        }
+
+        function gameLoop(timestamp) {
+            if (lastTimestamp === 0) lastTimestamp = timestamp;
+
+            const deltaTime = Math.min((timestamp - lastTimestamp) / 1000, 0.1);
+            lastTimestamp = timestamp;
+
+            if (simulationRunning) {
+                updatePositions(deltaTime);
+            }
+            drawSimulation();
+
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        updateSliderValues();
+        projectile = getDefaultProjectileState();
+        projectile.vx = 0;
+        simulationRunning = false;
+        drawSimulation();
+
+    </script>
+</body>
+
+</html>
