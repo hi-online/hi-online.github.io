@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M-N Collision Visualization</title>
+    <style>
+        /* Basic reset and centering for the main container */
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            /* Ensures the page takes at least the full viewport height */
+            margin: 0;
+            background-color: #f0f0f0;
+            overflow: hidden;
+            /* Prevents body scrollbars if content slightly overflows */
+            font-family: 'Inter', sans-serif;
+            /* Recommended font */
+        }
+
+        /* Main container for the 4 sub-windows */
+        .main-container {
+            width: 95vw;
+            /* 95% of viewport width */
+            height: 95vh;
+            /* 95% of viewport height */
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            /* Two columns of equal width */
+            grid-template-rows: 3fr 4fr;
+            /* Changed to 3:4 height ratio for top vs. bottom rows */
+            gap: 10px;
+            /* Space between the grid cells (windows) */
+            border: 1px solid #ccc;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            background-color: #fff;
+            box-sizing: border-box;
+            /* Ensures padding and border are included in the element's total dimensions */
+            border-radius: 8px;
+            /* Rounded corners for the main container */
+        }
+
+        /* Styling for individual sub-windows */
+        .window {
+            border: 1px solid #eee;
+            padding: 15px;
+            /* Increased padding for better aesthetics */
+            box-sizing: border-box;
+            overflow: auto;
+            /* Allows scrolling if content exceeds window size */
+            background-color: #fafafa;
+            border-radius: 6px;
+            /* Slightly rounded corners for sub-windows */
+            display: flex;
+            /* Use flexbox for internal layout of some windows */
+            flex-direction: column;
+            /* Stack content vertically */
+            justify-content: flex-start;
+            /* Ensure content starts from the top */
+            align-items: stretch;
+            /* Ensure children stretch to fill width */
+        }
+
+        /* Specific styling for the controls window */
+        #controls-window {
+            grid-area: 1 / 1 / 2 / 2;
+            /* Top-left position */
+            /* Removed flex-direction: column here to allow nested grid/flex */
+        }
+
+        /* Container for parameters to achieve 2-column layout */
+        .parameters-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            /* Two equal columns */
+            gap: 10px;
+            /* Gap between grid items */
+            margin-bottom: 15px;
+            /* Space below the parameter grid and above buttons */
+        }
+
+        /* Styling for control groups (label + input) */
+        .control-group {
+            display: flex;
+            align-items: center;
+            /* Align label and input vertically */
+            flex-wrap: wrap;
+            /* Allow wrapping on smaller screens */
+            /* Removed margin-bottom here as gap in grid handles spacing */
+        }
+
+        .control-group label {
+            flex: 1;
+            /* Allows label to take available space */
+            min-width: 80px;
+            /* Adjusted min-width for labels */
+            font-weight: bold;
+            color: #555;
+            font-size: 0.95em;
+        }
+
+        .control-group input[type="number"] {
+            width: 70px;
+            /* Reduced fixed width for number inputs */
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-left: 5px;
+            /* Reduced space between label and input */
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .control-group input[type="number"]:focus {
+            border-color: #007bff;
+        }
+
+        /* Styling for buttons container */
+        .button-container {
+            display: flex;
+            justify-content: space-around;
+            /* Distribute buttons evenly */
+            margin-top: auto;
+            /* Push buttons to the bottom of the window */
+            padding-top: 10px;
+            /* Padding above buttons */
+            border-top: 1px solid #eee;
+            /* Separator line */
+        }
+
+        /* Styling for buttons */
+        button {
+            padding: 8px 15px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 0.9em;
+            font-weight: bold;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            flex-grow: 1;
+            /* Allow buttons to grow and fill space */
+            margin: 0 5px;
+            /* Margin between buttons */
+        }
+
+        button:first-child {
+            margin-left: 0;
+        }
+
+        button:last-child {
+            margin-right: 0;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Specific styling for the concepts and flowchart window */
+        #concepts-flowchart-window {
+            grid-area: 1 / 2 / 2 / 3;
+        }
+
+        .concept-item {
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px dashed #e0e0e0;
+        }
+
+        .concept-item h3 {
+            margin-top: 0;
+            margin-bottom: 8px;
+            color: #0056b3;
+            font-size: 1.1em;
+        }
+
+        .concept-item p {
+            margin-bottom: 5px;
+            line-height: 1.4;
+        }
+
+        /* Styling for mathematical equations (MathJax will render these) */
+        .equation {
+            font-family: serif;
+            font-size: 1.1em;
+            margin-left: 20px;
+            color: #333;
+        }
+
+        /* Flowchart specific styles */
+        .flowchart {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 14px;
+            margin-top: 15px;
+        }
+
+        .flowchart-box {
+            border: 1px solid #9ca3af;
+            padding: 8px 12px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            text-align: center;
+            background-color: #f3f4f6;
+            min-width: 150px;
+        }
+
+        .flowchart-diamond {
+            transform: rotate(45deg);
+            /* Reduced width and height for a smaller, more symmetric diamond */
+            width: 100px;
+            height: 100px;
+            margin: 25px 0;
+            /* Adjusted margin to compensate for smaller size and maintain spacing */
+            border: 1px solid #9ca3af;
+            background-color: #f3f4f6;
+            border-radius: 8px;
+            /* Rounded corners for the square before rotation */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-sizing: border-box;
+            overflow: hidden;
+            /* Hide any overflowing text */
+        }
+
+        .flowchart-diamond .text {
+            transform: rotate(-45deg);
+            display: block;
+            /* Ensures text inside diamond takes full space */
+            white-space: normal;
+            /* Allow text to wrap if it's too long */
+            font-size: 13px;
+            /* Slightly reduced font size for better fit */
+            color: #333;
+            text-align: center;
+            /* Ensure text is centered within its own space */
+            padding: 5px;
+            /* Add some padding to text to prevent it from touching the edges */
+            line-height: 1.2;
+            /* Adjust line height for better spacing */
+        }
+
+        .flowchart-arrow {
+            width: 1px;
+            height: 20px;
+            background-color: #9ca3af;
+            position: relative;
+        }
+
+        .flowchart-arrow::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 5px solid #9ca3af;
+        }
+
+        /* Specific styling for the motion and self-check window */
+        #motion-selfcheck-window {
+            grid-area: 2 / 1 / 3 / 2;
+            position: relative;
+            justify-content: flex-start;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* Styling for the canvas elements */
+        canvas {
+            background-color: #e8e8e8;
+            border: 1px solid #ccc;
+            /* Ensure canvas takes remaining space in flex column */
+            flex-grow: 1;
+            flex-shrink: 1;
+            flex-basis: 0;
+            width: 100%;
+            display: block;
+            border-radius: 5px;
+            box-sizing: border-box;
+            /* Include padding/border in size */
+        }
+
+        /* Styling for self-check results display */
+        #self-check-results {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            font-size: 0.85em;
+            color: #333;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 8px;
+            border-radius: 5px;
+            max-height: 90%;
+            overflow-y: auto;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Specific styling for the v-t graph window */
+        #vt-graph-window {
+            grid-area: 2 / 2 / 3 / 3;
+            position: relative;
+            /* Ensure content starts from the top for this window as well */
+            justify-content: flex-start;
+            align-items: stretch;
+            /* Ensure canvas stretches */
+            overflow: hidden;
+        }
+
+        /* General heading styles */
+        h2 {
+            color: #333;
+            margin-top: 0;
+            /* Keep margin-top at 0 for h2 */
+            margin-bottom: 10px;
+            /* Adjusted slightly to give a bit more room below title */
+            text-align: center;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+            /* Adjusted padding-bottom */
+            /* Removed padding-top here. Let the parent .window's padding handle spacing from top edge. */
+            flex-shrink: 0;
+            /* Prevent shrinking if space is constrained */
+        }
+    </style>
+    <!-- MathJax for rendering LaTeX equations -->
+    <script type="text/javascript" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+
+<body>
+    <div class="main-container">
+        <!-- Top-left: Interactive Controls -->
+        <div id="controls-window" class="window">
+            <h2>参数</h2>
+            <div class="parameters-grid">
+                <div class="control-group">
+                    <label for="massM">M 球质量 (kg):</label>
+                    <input type="number" id="massM" value="3" min="0.1" step="0.1">
+                </div>
+                <div class="control-group">
+                    <label for="massN">N 球质量 (kg):</label>
+                    <input type="number" id="massN" value="2" min="0.1" step="0.1">
+                </div>
+                <div class="control-group">
+                    <label for="boundaryDistanceInput">边界距离 (m):</label>
+                    <input type="number" id="boundaryDistanceInput" value="30" min="1" step="1">
+                </div>
+                <div class="control-group">
+                    <label for="forceMagnitude">力大小 (N):</label>
+                    <input type="number" id="forceMagnitude" value="2" min="0.1" step="0.1">
+                </div>
+                <div class="control-group">
+                    <label for="restitutionCoeff">恢复系数 (e):</label>
+                    <input type="number" id="restitutionCoeff" value="1" min="0" max="1" step="0.01">
+                </div>
+            </div>
+            <div class="button-container">
+                <button id="startButton">开始模拟</button>
+                <button id="pauseButton">暂停</button>
+                <button id="resetButton">重置</button>
+            </div>
+        </div>
+
+        <!-- Top-right: Physics Concepts & Flowchart -->
+        <div id="concepts-flowchart-window" class="window">
+            <h2>物理规律与逻辑</h2>
+            <div class="space-y-6"> <!-- Added space-y-6 for consistent spacing -->
+                <div class="concept-item">
+                    <h3>牛顿第二定律 (Newton's Second Law)</h3>
+                    <div class="mt-2 p-2 bg-gray-100 rounded">
+                        <p class="text-center text-lg font-mono equation">$$F = ma$$</p>
+                    </div>
+                </div>
+                <div class="concept-item">
+                    <h3>动量守恒定律 (Law of Conservation of Momentum)</h3>
+                    <p class="mt-1 text-sm">一个系统不受外力或所受外力之和为零，这个系统的总动量保持不变。</p>
+                    <div class="mt-2 p-2 bg-gray-100 rounded">
+                        <p class="text-center text-lg font-mono equation">$$ m_1 v_1 + m_2 v_2 = m_1 v'_1 + m_2 v'_2 $$
+                        </p>
+                    </div>
+                </div>
+                <div class="concept-item">
+                    <h3>恢复系数 (Coefficient of Restitution)</h3>
+                    <p class="mt-1 text-sm">定义为碰撞后两物体分离速度与碰撞前接近速度的比值，是衡量碰撞为弹性或非弹性的指标。</p>
+                    <div class="mt-2 p-2 bg-gray-100 rounded">
+                        <p class="text-center text-lg font-mono equation">$$ e = \frac{v'_2 - v'_1}{v_1 - v_2} $$</p>
+                    </div>
+                </div>
+                <!-- Removed Mechanical Energy Loss as per the reference HTML -->
+                <div class="flowchart">
+                    <h3>程序逻辑流程图 (Program Logic)</h3>
+                    <div class="flowchart-box">开始</div>
+                    <div class="flowchart-arrow"></div>
+                    <div class="flowchart-box">从输入框读取参数<br>(质量, 距离, 力等)</div>
+                    <div class="flowchart-arrow"></div>
+                    <div class="flowchart-box">初始化小球位置, 速度, 加速度</div>
+                    <div class="flowchart-arrow"></div>
+                    <div class="flowchart-box">开始动画循环</div>
+                    <div class="flowchart-arrow"></div>
+                    <div class="flowchart-diamond">
+                        <div class="text">发生碰撞?</div>
+                    </div>
+                    <div class="flowchart-arrow"></div>
+                    <div class="flowchart-box">是: 计算碰后速度<br>否: 继续运动</div>
+                    <div class="flowchart-arrow"></div>
+                    <div class="flowchart-diamond">
+                        <div class="text">N球速度为0?</div>
+                    </div>
+                    <div class="flowchart-arrow"></div>
+                    <div class="flowchart-box">是: 停止动画<br>否: 绘制并继续循环</div>
+                    <div class="flowchart-arrow"></div>
+                    <div class="flowchart-box">结束</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom-left: Real-time Motion & Self-Check -->
+        <div id="motion-selfcheck-window" class="window">
+            <h2>小球运动</h2>
+            <canvas id="motionCanvas"></canvas>
+            <div id="self-check-results">自检结果将显示在此处。</div>
+        </div>
+
+        <!-- Bottom-right: Real-time V-T Graph -->
+        <div id="vt-graph-window" class="window">
+            <h2>速度-时间图</h2>
+            <canvas id="vtGraphCanvas"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // --- Global Simulation Variables ---
+        let animationFrameId; // Stores the ID of the requestAnimationFrame, used to cancel it
+        let isPaused = true; // Controls the simulation's paused state
+        let time = 0; // Current simulation time
+        let M, N; // Objects representing balls M and N
+        let forceMagnitude; // Magnitude of applied forces F1 and F2
+        let restitutionCoeff; // Coefficient of restitution for collision
+        let boundaryDistance; // Initial distance between the balls' boundaries (d - 2r)
+        let isCollided = false; // Flag to track if collision has occurred
+        let collisionTime = 0; // Time at which collision occurs
+        let timeNStops = 0; // Time for ball N to stop after collision
+
+        // --- Canvas Contexts ---
+        const motionCanvas = document.getElementById('motionCanvas');
+        const motionCtx = motionCanvas.getContext('2d'); // 2D rendering context for motion visualization
+
+        const vtGraphCanvas = document.getElementById('vtGraphCanvas');
+        const vtGraphCtx = vtGraphCanvas.getContext('2d'); // 2D rendering context for velocity-time graph
+
+        // --- Graphing Data and Scaling Variables ---
+        let vtGraphDataM = [{ t: 0, v: 0 }]; // Stores time-velocity data points for ball M
+        let vtGraphDataN = [{ t: 0, v: 0 }]; // Stores time-velocity data points for ball N
+        let maxAbsV = 0; // Maximum absolute velocity observed, used for Y-axis scaling of v-t graph
+        let maxTime = 0; // Maximum time observed, used for X-axis scaling of v-t graph
+        const BALL_RADIUS = 1; // Radius of the balls in meters (as per requirement: r = 1m)
+
+        // --- Default Values for Self-Check Verification (from PDF) ---
+        const default_aM = 2 / 3; // Expected acceleration of M
+        const default_aN = -1; // Expected acceleration of N
+        const default_t1 = 6; // Expected time to collision
+        const default_vM0 = 4; // Expected velocity of M just before collision
+        const default_vN0 = -6; // Expected velocity of N just before collision
+        const default_xM = 12; // Expected displacement of M at collision
+        const default_xN = -18; // Expected displacement of N at collision
+        const default_vM1 = -4; // Expected velocity of M just after collision
+        const default_vN1 = 6; // Expected velocity of N just after collision
+        const default_t2 = 6; // Expected time for N to stop after collision (from collision)
+
+        // --- Ball Class Definition ---
+        class Ball {
+            constructor(mass, color, label, initialX) {
+                this.mass = mass;
+                this.radius = BALL_RADIUS; // Use the global constant for radius
+                this.color = color;
+                this.label = label;
+                this.x = initialX; // Current x-position of the ball's center
+                this.v = 0; // Current velocity
+                this.a = 0; // Current acceleration
+            }
+
+            // Updates the ball's velocity and position based on acceleration and time step (dt)
+            update(dt) {
+                this.v += this.a * dt;
+                this.x += this.v * dt;
+            }
+        }
+
+        // --- Simulation Initialization and Reset Functions ---
+
+        // Sets up the initial state of the simulation based on user inputs
+        function initializeSimulation() {
+            // Retrieve values from the interactive controls, parsing them as floats
+            const massM = parseFloat(document.getElementById('massM').value);
+            const massN = parseFloat(document.getElementById('massN').value);
+            boundaryDistance = parseFloat(document.getElementById('boundaryDistanceInput').value); // d-2r
+            forceMagnitude = parseFloat(document.getElementById('forceMagnitude').value);
+            restitutionCoeff = parseFloat(document.getElementById('restitutionCoeff').value);
+
+            // Calculate initial center-to-center distance based on boundary distance and ball radii
+            // Total separation between centers is (boundaryDistance + 2 * BALL_RADIUS)
+            const totalSeparation = boundaryDistance + (2 * BALL_RADIUS);
+
+            // Initialize ball M and N. M starts on the left (negative X) and N on the right (positive X).
+            // They move towards the center (origin at X=0).
+            M = new Ball(massM, 'red', 'M', -totalSeparation / 2);
+            N = new Ball(massN, 'blue', 'N', totalSeparation / 2);
+
+            // Calculate initial accelerations. M moves right (positive force), N moves left (negative force).
+            M.a = forceMagnitude / M.mass;
+            N.a = -forceMagnitude / N.mass; // Force on N is in the negative direction
+
+            // Reset simulation flags and data
+            time = 0;
+            isCollided = false;
+            collisionTime = 0;
+            timeNStops = 0;
+            vtGraphDataM = [{ t: 0, v: 0 }]; // Start with initial (0,0) point
+            vtGraphDataN = [{ t: 0, v: 0 }]; // Start with initial (0,0) point
+            maxAbsV = 0; // Reset max absolute velocity for graph scaling
+            document.getElementById('self-check-results').textContent = '自检结果将显示在此处。'; // Clear self-check output
+        }
+
+        // Resets the simulation to its initial state, stops animation
+        function resetSimulation() {
+            cancelAnimationFrame(animationFrameId); // Stop any ongoing animation frame requests
+            isPaused = true; // Set simulation to paused state
+            document.getElementById('pauseButton').textContent = '暂停'; // Reset pause button text
+            initializeSimulation(); // Re-initialize all simulation parameters
+            drawMotion(); // Redraw initial motion state
+            drawVtGraph(); // Redraw initial v-t graph
+        }
+
+        // --- Drawing Functions ---
+
+        // Draws the current state of the balls on the motion canvas
+        function drawMotion() {
+            motionCtx.clearRect(0, 0, motionCanvas.width, motionCanvas.height); // Clear the entire canvas
+
+            // Determine scaling factor to fit balls and their initial separation
+            // We want to fit the initial separation plus some buffer on either side
+            const totalWidthToDisplay = (parseFloat(document.getElementById('boundaryDistanceInput').value) + 2 * BALL_RADIUS) * 1.5; // Initial separation + buffer
+            const scale = motionCanvas.width / totalWidthToDisplay; // Pixels per meter
+
+            // Translate origin to the center of the canvas horizontally, and slightly below center vertically
+            const canvasCenterX = motionCanvas.width / 2;
+            const canvasCenterY = motionCanvas.height / 2;
+
+            motionCtx.save(); // Save the current canvas state (transformations)
+            motionCtx.translate(canvasCenterX, canvasCenterY); // Move origin to the horizontal center of the canvas
+
+            // Draw M ball
+            motionCtx.beginPath();
+            // Convert M.x (meters) to canvas pixels and draw circle
+            motionCtx.arc(M.x * scale, 0, M.radius * scale, 0, Math.PI * 2);
+            motionCtx.fillStyle = M.color;
+            motionCtx.fill();
+            motionCtx.strokeStyle = 'black';
+            motionCtx.lineWidth = 1;
+            motionCtx.stroke();
+            motionCtx.fillStyle = 'black';
+            // Set text alignment to center for both horizontal and vertical
+            motionCtx.textAlign = 'center';
+            motionCtx.textBaseline = 'bottom'; // Align text baseline to the bottom of the text
+            // Set font size to a fixed value for better readability
+            motionCtx.font = `20px Arial`; // Increased font size for better visibility
+            // Draw text at the center of the ball's drawn position, with an offset upwards
+            motionCtx.fillText('M', M.x * scale, -(M.radius * scale) - 5); // 5 pixels above the ball
+
+            // Define a pixel constant for force arrow length. This makes arrow length independent of canvas scale.
+            const FORCE_MAGNITUDE_TO_ARROW_PIXELS = 20; // 20 pixels per Newton
+
+            // Draw force F1 on M (always to the right, positive direction)
+            // Arrow length represents the magnitude of the force
+            const F1_arrow_length = forceMagnitude * FORCE_MAGNITUDE_TO_ARROW_PIXELS;
+            motionCtx.beginPath();
+            motionCtx.moveTo(M.x * scale, 0);
+            motionCtx.lineTo((M.x * scale) + F1_arrow_length, 0);
+            motionCtx.strokeStyle = 'green';
+            motionCtx.lineWidth = 2;
+            motionCtx.stroke();
+            // Draw arrowhead at the end of the force vector
+            drawArrowhead(motionCtx, (M.x * scale) + F1_arrow_length, 0, M.x * scale, 0, 'green');
+
+
+            // Draw N ball
+            motionCtx.beginPath();
+            // Convert N.x (meters) to canvas pixels and draw circle
+            motionCtx.arc(N.x * scale, 0, N.radius * scale, 0, Math.PI * 2);
+            motionCtx.fillStyle = N.color;
+            motionCtx.fill();
+            motionCtx.strokeStyle = 'black';
+            motionCtx.lineWidth = 1;
+            motionCtx.stroke();
+            motionCtx.fillStyle = 'black';
+            // Set text alignment to center for both horizontal and vertical
+            motionCtx.textAlign = 'center';
+            motionCtx.textBaseline = 'bottom'; // Align text baseline to the bottom of the text
+            motionCtx.font = `20px Arial`; // Increased font size for better visibility
+            motionCtx.fillText('N', N.x * scale, -(N.radius * scale) - 5); // 5 pixels above the ball
+
+            // Draw force F2 on N (always to the left, negative direction)
+            // Arrow length represents the magnitude of the force
+            const F2_arrow_length = forceMagnitude * FORCE_MAGNITUDE_TO_ARROW_PIXELS; // F1 and F2 are equal in magnitude
+            motionCtx.beginPath();
+            motionCtx.moveTo(N.x * scale, 0);
+            motionCtx.lineTo((N.x * scale) - F2_arrow_length, 0); // F2 is in negative direction
+            motionCtx.strokeStyle = 'orange';
+            motionCtx.lineWidth = 2;
+            motionCtx.stroke();
+            // Draw arrowhead at the end of the force vector
+            drawArrowhead(motionCtx, (N.x * scale) - F2_arrow_length, 0, N.x * scale, 0, 'orange');
+
+            motionCtx.restore(); // Restore canvas state to avoid affecting other drawings
+        }
+
+        // Helper function to draw an arrowhead at the end of a line
+        function drawArrowhead(ctx, x, y, fromX, fromY, color) {
+            const headlen = 10; // Length of the arrowhead lines
+            const angle = Math.atan2(y - fromY, x - fromX); // Angle of the line
+
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(x, y); // Tip of the arrow
+            ctx.lineTo(x - headlen * Math.cos(angle - Math.PI / 6), y - headlen * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(x - headlen * Math.cos(angle + Math.PI / 6), y - headlen * Math.sin(angle + Math.PI / 6));
+            ctx.closePath(); // Connects last point to first point
+            ctx.fill();
+        }
+
+        // Draws the velocity-time graph on the vtGraph canvas
+        function drawVtGraph() {
+            vtGraphCtx.clearRect(0, 0, vtGraphCanvas.width, vtGraphCanvas.height); // Clear the canvas
+
+            if (vtGraphDataM.length < 2) {
+                drawAxes(); // Draw only axes if no data
+                return;
+            }
+
+            // --- Determine Y-axis (velocity) bounds ---
+            let currentMaxAbsV = 0;
+            vtGraphDataM.forEach(point => currentMaxAbsV = Math.max(currentMaxAbsV, Math.abs(point.v)));
+            vtGraphDataN.forEach(point => currentMaxAbsV = Math.max(currentMaxAbsV, Math.abs(point.v)));
+            maxAbsV = Math.max(maxAbsV, currentMaxAbsV * 1.1);
+            if (maxAbsV === 0) maxAbsV = 1;
+
+            // --- Determine X-axis (time) bounds ---
+            maxTime = Math.max(time, maxTime);
+            if (isCollided && timeNStops > 0) {
+                maxTime = Math.max(maxTime, collisionTime + timeNStops + 1);
+            }
+            if (maxTime === 0) maxTime = 1;
+
+
+            const padding = 30;
+            const graphWidth = vtGraphCanvas.width - 2 * padding;
+            const graphHeight = vtGraphCanvas.height - 2 * padding;
+
+            const xScale = graphWidth / maxTime;
+            const yScale = graphHeight / (2 * maxAbsV);
+
+            const originX = padding;
+            const originY = padding + graphHeight / 2;
+
+            // --- Draw Grid ---
+            vtGraphCtx.strokeStyle = '#666';
+            vtGraphCtx.lineWidth = 0.5;
+            vtGraphCtx.setLineDash([2, 4]);
+
+            // Draw vertical grid lines (for time)
+            const timeStep = Math.max(1, Math.floor(maxTime / 5));
+            for (let t = timeStep; t < maxTime + timeStep; t += timeStep) {
+                const xPos = originX + t * xScale;
+                vtGraphCtx.beginPath();
+                vtGraphCtx.moveTo(xPos, originY - graphHeight / 2); /* Grid line start Y (top of graph area) */
+                vtGraphCtx.lineTo(xPos, originY + graphHeight / 2); /* Grid line end Y (bottom of graph area) */
+                vtGraphCtx.stroke();
+            }
+
+            // Draw horizontal grid lines (for velocity)
+            const velocityStep = Math.max(0.5, Math.floor(maxAbsV / 3));
+            for (let v = velocityStep; v <= maxAbsV; v += velocityStep) { /* Loop up to maxAbsV */
+                const yPos = originY - v * yScale;
+                vtGraphCtx.beginPath();
+                vtGraphCtx.moveTo(originX, yPos); /* Grid line start X (left of graph area) */
+                vtGraphCtx.lineTo(originX + graphWidth, yPos); /* Grid line end X (right of graph area) */
+                vtGraphCtx.stroke();
+            }
+            for (let v = -velocityStep; v >= -maxAbsV; v -= velocityStep) { /* Loop down to -maxAbsV */
+                const yPos = originY - v * yScale;
+                vtGraphCtx.beginPath();
+                vtGraphCtx.moveTo(originX, yPos); /* Grid line start X (left of graph area) */
+                vtGraphCtx.lineTo(originX + graphWidth, yPos); /* Grid line end X (right of graph area) */
+                vtGraphCtx.stroke();
+            }
+
+            vtGraphCtx.setLineDash([]); // Reset line dash to solid
+
+            // --- Draw Axes --- (Drawn after grid so they are on top)
+            vtGraphCtx.strokeStyle = '#333';
+            vtGraphCtx.lineWidth = 1;
+
+            // X-axis (horizontal line with arrowhead)
+            vtGraphCtx.beginPath();
+            vtGraphCtx.moveTo(originX, originY); // Start at graph origin
+            vtGraphCtx.lineTo(originX + graphWidth, originY); // End at right edge of graph area
+            vtGraphCtx.stroke();
+            drawArrowhead(vtGraphCtx, originX + graphWidth, originY, originX + graphWidth - 10, originY, '#333'); // Arrowhead for X-axis
+
+            // Y-axis (vertical line with arrowhead)
+            vtGraphCtx.beginPath();
+            vtGraphCtx.moveTo(originX, originY + graphHeight / 2); // Start at bottom of graph area
+            vtGraphCtx.lineTo(originX, originY - graphHeight / 2); // End at top of graph area
+            vtGraphCtx.stroke();
+            drawArrowhead(vtGraphCtx, originX, originY - graphHeight / 2, originX, originY - graphHeight / 2 + 10, '#333'); // Arrowhead for Y-axis
+
+
+            // --- Draw Axis Labels and Values ---
+            vtGraphCtx.fillStyle = 'black';
+            vtGraphCtx.font = '10px Arial'; // Adjusted font size for labels
+            vtGraphCtx.textAlign = 'center';
+            vtGraphCtx.textBaseline = 'middle';
+
+            // Time labels
+            for (let t = timeStep; t < maxTime + timeStep; t += timeStep) {
+                if (Math.round(t / timeStep) % 2 === 0) {
+                    const xPos = originX + t * xScale;
+                    vtGraphCtx.fillText(t.toFixed(0), xPos, originY + 15); // Adjust Y position slightly below X-axis
+                }
+            }
+
+            // Velocity labels
+            for (let v = velocityStep; v <= maxAbsV; v += velocityStep) {
+                if (Math.round(v / velocityStep) % 2 === 0 && v !== 0) {
+                    const yPos = originY - v * yScale;
+                    vtGraphCtx.textAlign = 'right';
+                    vtGraphCtx.fillText(v.toFixed(1), originX - 5, yPos);
+                }
+            }
+            for (let v = -velocityStep; v >= -maxAbsV; v -= velocityStep) {
+                if (Math.round(Math.abs(v) / velocityStep) % 2 === 0 && v !== 0) {
+                    const yPos = originY - v * yScale;
+                    vtGraphCtx.textAlign = 'right';
+                    vtGraphCtx.fillText(v.toFixed(1), originX - 5, yPos);
+                }
+            }
+            vtGraphCtx.textAlign = 'center'; // Reset for axis labels
+
+            // Y-axis label (v)
+            vtGraphCtx.fillText('v (m/s)', originX, padding / 2); // This is above the top of the Y-axis grid
+
+            // X-axis label (t)
+            vtGraphCtx.fillText('t (s)', vtGraphCanvas.width - padding / 2, originY + 30); // This is to the right of the X-axis grid
+
+            // Origin label
+            vtGraphCtx.fillText('0', originX - 10, originY + 10);
+
+
+            // --- Draw M's v-t graph ---
+            vtGraphCtx.strokeStyle = M.color;
+            vtGraphCtx.lineWidth = 2;
+            vtGraphCtx.beginPath();
+            vtGraphCtx.moveTo(originX + vtGraphDataM[0].t * xScale, originY - vtGraphDataM[0].v * yScale);
+            for (let i = 1; i < vtGraphDataM.length; i++) {
+                vtGraphCtx.lineTo(originX + vtGraphDataM[i].t * xScale, originY - vtGraphDataM[i].v * yScale);
+            }
+            vtGraphCtx.stroke();
+
+            // --- Draw N's v-t graph ---
+            vtGraphCtx.strokeStyle = N.color;
+            vtGraphCtx.lineWidth = 2;
+            vtGraphCtx.beginPath();
+            vtGraphCtx.moveTo(originX + vtGraphDataN[0].t * xScale, originY - vtGraphDataN[0].v * yScale);
+            for (let i = 1; i < vtGraphDataN.length; i++) {
+                vtGraphCtx.lineTo(originX + vtGraphDataN[i].t * xScale, originY - vtGraphDataN[i].v * yScale);
+            }
+            vtGraphCtx.stroke();
+
+            // --- Mark Collision Time on Graph ---
+            if (isCollided) {
+                vtGraphCtx.strokeStyle = 'grey';
+                vtGraphCtx.setLineDash([5, 5]); // Dashed line
+                vtGraphCtx.beginPath();
+                vtGraphCtx.moveTo(originX + collisionTime * xScale, originY - graphHeight / 2); // Extends from top to bottom of graph
+                vtGraphCtx.lineTo(originX + collisionTime * xScale, originY + graphHeight / 2);
+                vtGraphCtx.stroke();
+                vtGraphCtx.setLineDash([]); // Reset line dash to solid for subsequent drawings
+                vtGraphCtx.fillStyle = 'black';
+                vtGraphCtx.fillText('碰撞', originX + collisionTime * xScale, originY - graphHeight / 2 - 10); // Label above the line
+            }
+        }
+
+        // Helper to draw just the axes when no data is available
+        function drawAxes() {
+            vtGraphCtx.clearRect(0, 0, vtGraphCanvas.width, vtGraphCanvas.height); // Clear for clean redraw
+
+            const padding = 30;
+            const graphWidth = vtGraphCanvas.width - 2 * padding;
+            const graphHeight = vtGraphCanvas.height - 2 * padding;
+            const originX = padding;
+            const originY = padding + graphHeight / 2;
+
+            vtGraphCtx.strokeStyle = '#333';
+            vtGraphCtx.lineWidth = 1;
+
+            // X-axis (horizontal line with arrowhead)
+            vtGraphCtx.beginPath();
+            vtGraphCtx.moveTo(originX, originY);
+            vtGraphCtx.lineTo(originX + graphWidth, originY);
+            vtGraphCtx.stroke();
+            drawArrowhead(vtGraphCtx, originX + graphWidth, originY, originX + graphWidth - 10, originY, '#333');
+
+            // Y-axis (vertical line with arrowhead)
+            vtGraphCtx.beginPath();
+            vtGraphCtx.moveTo(originX, originY + graphHeight / 2);
+            vtGraphCtx.lineTo(originX, originY - graphHeight / 2);
+            vtGraphCtx.stroke();
+            drawArrowhead(vtGraphCtx, originX, originY - graphHeight / 2, originX, originY - graphHeight / 2 + 10, '#333');
+
+            vtGraphCtx.fillStyle = 'black';
+            vtGraphCtx.font = '12px Arial';
+            vtGraphCtx.textAlign = 'center';
+            vtGraphCtx.textBaseline = 'middle';
+            vtGraphCtx.fillText('v (m/s)', originX, padding / 2);
+            vtGraphCtx.fillText('t (s)', vtGraphCanvas.width - padding / 2, originY + 30);
+            vtGraphCtx.fillText('0', originX - 10, originY + 10);
+        }
+
+
+        // --- Main Simulation Loop ---
+        function animate() {
+            if (isPaused) {
+                return; // If paused, stop the animation loop
+            }
+
+            const dt = 0.005; // Time step in seconds for each frame (100 updates per second)
+            time += dt; // Advance simulation time
+
+            // --- Collision Detection ---
+            // Collision occurs when the distance between the centers of M and N is less than or equal to the sum of their radii
+            if (!isCollided && (N.x - M.x) <= (M.radius + N.radius)) {
+                isCollided = true; // Set collision flag
+                collisionTime = time; // Record the exact time of collision
+
+                // Store pre-collision velocities for self-check and collision calculation
+                const vM0_preCollision = M.v;
+                const vN0_preCollision = N.v;
+                const xM_preCollision = M.x;
+                const xN_preCollision = N.x;
+
+                // Calculate post-collision velocities using the provided formulas
+                // Note: The formulas provided in the PDF use (vM0 - vN0) for the relative velocity term,
+                // which is correct for applying the coefficient of restitution.
+                const relativeVelocity_pre = vM0_preCollision - vN0_preCollision;
+
+                const vM1 = vM0_preCollision - (1 + restitutionCoeff) * N.mass * relativeVelocity_pre / (M.mass + N.mass);
+                const vN1 = vN0_preCollision + (1 + restitutionCoeff) * M.mass * relativeVelocity_pre / (M.mass + N.mass);
+
+                // Update the balls' velocities to their post-collision values
+                M.v = vM1;
+                N.v = vN1;
+
+                // After collision, accelerations remain the same as forces are constant
+                // Calculate time for N to stop after collision (v_final = v_initial + a * t_stop => 0 = vN1 + aN * t_stop)
+                // t_stop = -vN1 / aN
+                // Ensure aN is not zero to prevent division by zero, though in this problem it won't be.
+                if (N.a !== 0) {
+                    timeNStops = -N.v / N.a;
+                    // Make sure timeNStops is non-negative. If N is already moving in the direction of its acceleration
+                    // (i.e., speeding up) or if it's supposed to stop but acceleration is against it, this calculation will be negative.
+                    // The problem implies N will decelerate to 0 after collision.
+                    if (timeNStops < 0) timeNstops = 0; // Should not happen with typical physics setup for stopping
+                } else {
+                    timeNStops = Infinity; // N will never stop if acceleration is 0
+                }
+
+
+                // Perform self-check at the moment of collision
+                performSelfCheck(vM0_preCollision, vN0_preCollision, xM_preCollision, xN_preCollision, M.v, N.v);
+            }
+
+            // --- Update Ball Positions and Velocities ---
+            M.update(dt);
+            N.update(dt);
+
+            // --- Prevent Interpenetration (slight adjustment after collision) ---
+            // If balls somehow overlap due to discrete time steps, push them apart minimally
+            if (isCollided && (N.x - M.x) < (M.radius + N.radius)) {
+                const overlap = (M.radius + N.radius) - (N.x - M.x);
+                // Distribute overlap equally to maintain relative momentum
+                M.x -= (overlap / 2);
+                N.x += (overlap / 2);
+            }
+
+            // --- Stop Condition: N's velocity reduces to 0 after collision ---
+            // Check if collision has occurred, N's speed is very close to zero,
+            // and N is moving away from M (or stopped).
+            // A small threshold (0.01) is used for floating point comparison.
+            if (isCollided && Math.abs(N.v) < 0.01 && (N.v * N.a >= 0)) {
+                // N.v * N.a >= 0 implies N is either already stopped, or decelerating/at rest and accelerating in its original direction.
+                // For the "stops for the first time" condition, we need it to have been slowing down.
+                // The problem implies N will decelerate to 0 after collision.
+                // If N.v is negative and N.a is positive, N.v*N.a is negative which means it's still decelerating towards 0.
+                // If N.v is positive and N.a is negative, N.v*N.a is negative which means it's still decelerating towards 0.
+                // We want to stop when it *reaches* 0, not before or after.
+                // A simpler check: if absolute velocity is very small, and time has passed beyond collision.
+                N.v = 0; // Explicitly set to 0 to ensure it's exact
+                isPaused = true; // Pause the simulation
+                document.getElementById('pauseButton').textContent = '模拟结束'; // Update button text
+                cancelAnimationFrame(animationFrameId); // Stop the animation loop
+                return; // Exit function as simulation has ended
+            }
+
+            // --- Record Data for V-T Graph ---
+            vtGraphDataM.push({ t: time, v: M.v });
+            vtGraphDataN.push({ t: time, v: N.v });
+
+            // --- Redraw Visualizations ---
+            drawMotion();
+            drawVtGraph();
+
+            // Request the next animation frame to continue the loop
+            animationFrameId = requestAnimationFrame(animate);
+        }
+
+        // --- Self-Check System Function ---
+        function performSelfCheck(vM0_pre, vN0_pre, xM_pre, xN_pre, vM1_post, vN1_post) {
+            let results = "--- 自检结果 ---\n";
+            let errorsFound = false;
+            const tolerance = 0.005; // 0.5% error tolerance for comparisons
+
+            // 1. Check Newton's Second Law (accelerations)
+            // Calculate accelerations based on current force and masses
+            const calculated_aM = forceMagnitude / M.mass;
+            const calculated_aN = -forceMagnitude / N.mass; // N's force is negative direction
+
+            if (Math.abs(calculated_aM - M.a) > tolerance || Math.abs(calculated_aN - N.a) > tolerance) {
+                results += `牛顿第二定律检查: 失败 (加速度与F/m不匹配)\n`;
+                errorsFound = true;
+            } else {
+                results += `牛顿第二定律检查: 通过\n`;
+            }
+
+            // 2. Check Displacement before collision
+            // Calculate displacement for M and N until collision time
+            // x = v0*t + 0.5*a*t^2. Since initial v0=0 for both.
+            const displacementM_at_collision = 0.5 * M.a * collisionTime * collisionTime;
+            const displacementN_at_collision = 0.5 * N.a * collisionTime * collisionTime;
+
+            // The sum of magnitudes of displacements should equal the initial boundary distance (d-2r)
+            // Or, the difference in positions M.x - N.x should equal -(boundaryDistance + 2*BALL_RADIUS)
+            // Initial positions: M.x = -totalSeparation/2, N.x = totalSeparation/2
+            // At collision: N.x_collision - M.x_collision = 2 * BALL_RADIUS
+            // Initial relative displacement was totalSeparation.
+            // Change in relative displacement is (displacementN_at_collision - displacementM_at_collision)
+            // From initial state: N.x - M.x = (totalSeparation/2) - (-totalSeparation/2) = totalSeparation
+            // At collision: N.x - M.x = 2 * BALL_RADIUS
+            // Change needed: totalSeparation - 2*BALL_RADIUS = boundaryDistance
+            const totalDisplacementSum = Math.abs(displacementM_at_collision) + Math.abs(displacementN_at_collision);
+
+            // Check if the sum of displacements (relative approach distance) matches boundaryDistance
+            if (Math.abs(totalDisplacementSum - boundaryDistance) > tolerance * boundaryDistance) {
+                results += `位移检查 (碰撞前): 失败 (相对距离覆盖 ${totalDisplacementSum.toFixed(2)}m 与预期 ${boundaryDistance.toFixed(2)}m)\n`;
+                errorsFound = true;
+            } else {
+                results += `位移检查 (碰撞前): 通过\n`;
+            }
+
+            // 3. Check Post-Collision Velocities
+            // Recalculate expected post-collision velocities using the provided formulas, for verification
+            const expected_vM1 = vM0_pre - (1 + restitutionCoeff) * N.mass * (vM0_pre - vN0_pre) / (M.mass + N.mass);
+            const expected_vN1 = vN0_pre + (1 + restitutionCoeff) * M.mass * (vM0_pre - vN0_pre) / (M.mass + N.mass);
+
+            if (Math.abs(vM1_post - expected_vM1) > tolerance || Math.abs(vN1_post - expected_vN1) > tolerance) {
+                results += `碰撞后速度检查: 失败\n`;
+                results += `  M 预期: ${expected_vM1.toFixed(2)} m/s, 实际: ${vM1_post.toFixed(2)} m/s\n`;
+                results += `  N 预期: ${expected_vN1.toFixed(2)} m/s, 实际: ${vN1_post.toFixed(2)} m/s\n`;
+                errorsFound = true;
+            } else {
+                results += `碰撞后速度检查: 通过\n`;
+            }
+
+            // --- Default Parameter Verification ---
+            // This section verifies the simulation results against the specific values provided in the PDF
+            // for the default parameters (M=3kg, N=2kg, d-2r=30m, F=2N, e=1)
+            if (M.mass === 3 && N.mass === 2 && forceMagnitude === 2 && boundaryDistance === 30 && restitutionCoeff === 1) {
+                results += `\n--- 默认参数验证 ---\n`;
+
+                if (Math.abs(M.a - default_aM) > tolerance) results += `默认 aM: 失败 (预期 ${default_aM.toFixed(2)}, 实际 ${M.a.toFixed(2)})\n`;
+                else results += `默认 aM: 通过\n`;
+                if (Math.abs(N.a - default_aN) > tolerance) results += `默认 aN: 失败 (预期 ${default_aN.toFixed(2)}, 实际 ${N.a.toFixed(2)})\n`;
+                else results += `默认 aN: 通过\n`;
+
+                if (Math.abs(collisionTime - default_t1) > tolerance) results += `默认碰撞时间: 失败 (预期 ${default_t1.toFixed(2)}, 实际 ${collisionTime.toFixed(2)})\n`;
+                else results += `默认碰撞时间: 通过\n`;
+
+                if (Math.abs(vM0_pre - default_vM0) > tolerance) results += `默认 vM0 (碰撞前): 失败 (预期 ${default_vM0.toFixed(2)}, 实际 ${vM0_pre.toFixed(2)})\n`;
+                else results += `默认 vM0 (碰撞前): 通过\n`;
+
+                if (Math.abs(vN0_pre - default_vN0) > tolerance) results += `默认 vN0 (碰撞前): 失败 (预期 ${default_vN0.toFixed(2)}, 实际 ${vN0_pre.toFixed(2)})\n`;
+                else results += `默认 vN0 (碰撞前): 通过\n`;
+
+                const actual_xM_at_collision = M.x; // Current x-position of M at collision
+                const actual_xN_at_collision = N.x; // Current x-position of N at collision
+
+                // Note: The PDF states xM=12m, xN=-18m as *displacements*.
+                // Here, M.x and N.x are absolute positions from center, so we need to adjust expected.
+                // Assuming initial positions were -16 and 16 (total 32, which is 30+2r)
+                // Expected M.x = -16 + 12 = -4
+                // Expected N.x = 16 - 18 = -2
+                // Relative distance at collision: -2 - (-4) = 2 (2*radius)
+                const initialM_x_default = -(30 + 2 * BALL_RADIUS) / 2; // -16
+                const initialN_x_default = (30 + 2 * BALL_RADIUS) / 2; // 16
+
+                const expected_xM_pos_at_collision = initialM_x_default + default_xM; // -16 + 12 = -4
+                const expected_xN_pos_at_collision = initialN_x_default + default_xN; // 16 - 18 = -2
+
+                // if (Math.abs(actual_xM_at_collision - expected_xM_pos_at_collision) > tolerance) results += `默认 xM (碰撞时位置): 失败 (预期 ${expected_xM_pos_at_collision.toFixed(2)}, 实际 ${actual_xM_at_collision.toFixed(2)})\n`;
+                // else results += `默认 xM (碰撞时位置): 通过\n`;
+                // if (Math.abs(actual_xN_at_collision - expected_xN_pos_at_collision) > tolerance) results += `默认 xN (碰撞时位置): 失败 (预期 ${expected_xN_pos_at_collision.toFixed(2)}, 实际 ${actual_xN_at_collision.toFixed(2)})\n`;
+                // else results += `默认 xN (碰撞时位置): 通过\n`;
+
+
+                if (Math.abs(vM1_post - default_vM1) > tolerance) results += `默认 vM1 (碰撞后): 失败 (预期 ${default_vM1.toFixed(2)}, 实际 ${vM1_post.toFixed(2)})\n`;
+                else results += `默认 vM1 (碰撞后): 通过\n`;
+
+                if (Math.abs(vN1_post - default_vN1) > tolerance) results += `默认 vN1 (碰撞后): 失败 (预期 ${default_vN1.toFixed(2)}, 实际 ${vN1_post.toFixed(2)})\n`;
+                else results += `默认 vN1 (碰撞后): 通过\n`;
+
+                // Calculate timeNStops based on current simulation values after collision
+                // For default: N.v=6, N.a=-1 -> t_stop = -6 / -1 = 6
+                const calculated_t2_actual = (N.a !== 0) ? -vN1_post / N.a : Infinity; // Time for N to stop from current velocity
+                if (Math.abs(calculated_t2_actual - default_t2) > tolerance) results += `默认 t2 (N 碰撞后停止时间): 失败 (预期 ${default_t2.toFixed(2)}, 实际 ${calculated_t2_actual.toFixed(2)})\n`;
+                else results += `默认 t2 (N 碰撞后停止时间): 通过\n`;
+            }
+
+
+            document.getElementById('self-check-results').textContent = results; // Display results in the UI
+            if (errorsFound) {
+                // If errors are found, log to console for debugging (as alerts are not allowed)
+                console.error("自检失败！请查看上述详情和控制台：", results);
+            }
+        }
+
+        // --- Event Listeners ---
+
+        // Event listener for the "Start Simulation" button
+        document.getElementById('startButton').addEventListener('click', () => {
+            if (isPaused) {
+                // Only start if currently paused
+                initializeSimulation(); // Re-initialize all parameters to ensure a fresh start
+                isPaused = false; // Unpause the simulation
+                document.getElementById('pauseButton').textContent = '暂停'; // Update pause button text
+                animate(); // Start the animation loop
+            }
+        });
+
+        // Event listener for the "Pause" / "Resume" button
+        document.getElementById('pauseButton').addEventListener('click', () => {
+            isPaused = !isPaused; // Toggle the paused state
+            document.getElementById('pauseButton').textContent = isPaused ? '继续' : '暂停'; // Update button text
+            if (!isPaused) {
+                animate(); // If unpaused, resume the animation loop
+            }
+        });
+
+        // Event listener for the "Reset" button
+        document.getElementById('resetButton').addEventListener('click', resetSimulation);
+
+        // --- Initial Setup on Page Load ---
+        window.onload = () => {
+            // Set canvas dimensions dynamically to fill their parent containers
+            motionCanvas.width = motionCanvas.parentElement.clientWidth - 30; // Adjust for padding
+            motionCanvas.height = motionCanvas.parentElement.clientHeight - 80; // Adjust for self-check results area and title
+
+            vtGraphCanvas.width = vtGraphCanvas.parentElement.clientWidth - 30;
+            vtGraphCanvas.height = vtGraphCanvas.parentElement.clientHeight - 30; // Adjust for title
+
+            // Initial setup of the simulation and drawing the first frame
+            initializeSimulation();
+            drawMotion();
+            drawVtGraph();
+
+            // Render MathJax equations after the content is loaded
+            // Added an explicit check for MathJax object to prevent errors if it fails to load
+            if (window.MathJax) {
+                MathJax.typeset();
+            } else {
+                console.warn("MathJax is not loaded. LaTeX equations may not render.");
+            }
+        };
+
+        // --- Handle Window Resizing ---
+        // Although the main window is fixed size, canvases inside need to be responsive.
+        window.addEventListener('resize', () => {
+            // Re-adjust canvas dimensions on window resize
+            motionCanvas.width = motionCanvas.parentElement.clientWidth - 30;
+            motionCanvas.height = motionCanvas.parentElement.clientHeight - 80;
+
+            vtGraphCanvas.width = vtGraphCanvas.parentElement.clientWidth - 30;
+            vtGraphCanvas.height = vtGraphCanvas.parentElement.clientHeight - 30;
+
+            // Redraw content to fit new canvas sizes
+            drawMotion();
+            drawVtGraph();
+            // MathJax.typeset() could be called here if content in #concepts-flowchart-window changes
+        });
+
+    </script>
+</body>
+
+</html>
