@@ -1,37 +1,96 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>课程主页</title>
+    <title>主页</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            text-align: center;
-            margin-top: 50px;
-            background-color: #f5f5f5;
-        }
-        h1 {
+            margin: 20px;
+            background-color: #f4f4f4;
             color: #333;
         }
-        .btn {
-            display: inline-block;
-            margin: 20px;
-            padding: 10px 20px;
-            background-color: #4CAF50;
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-            font-size: 18px;
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
-        .btn:hover {
-            background-color: #45a049;
+
+        h1 {
+            color: #0056b3;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .menu-section {
+            margin-bottom: 20px;
+        }
+
+        .menu-section h2 {
+            color: #0056b3;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #0056b3;
+            padding-bottom: 5px;
+        }
+
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+        }
+
+        .menu-item {
+            background-color: #e9ecef;
+            padding: 20px;
+            border-radius: 5px;
+            text-align: center;
+            text-decoration: none;
+            color: #0056b3;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+        }
+
+        .menu-item:hover {
+            background-color: #d6d8db;
         }
     </style>
 </head>
+
 <body>
-    <h1>欢迎来到课程主页</h1>
-    <p>请选择你要进入的课程：</p>
-    <a href="bixiu2.html" class="btn">必修二</a>
+    <div class="container">
+        <h1>高中物理</h1>
+
+        <div class="menu-section">
+            <h2>必修</h2>
+            <div class="menu-grid">
+                <a href="bixiu1.html" class="menu-item">必修一</a>
+                <a href="bixiu2.html" class="menu-item">必修二</a>
+                <a href="bixiu3.html" class="menu-item">必修三</a>
+            </div>
+        </div>
+
+        <div class="menu-section">
+            <h2>选修</h2>
+            <div class="menu-grid">
+                <a href="xuanxiu1.html" class="menu-item">选修一</a>
+                <a href="xuanxiu2.html" class="menu-item">选修二</a>
+                <a href="xuanxiu3.html" class="menu-item">选修三</a>
+            </div>
+        </div>
+
+        <div class="menu-section">
+            <h2>其他</h2>
+            <div class="menu-grid">
+                <a href="qita.html" class="menu-item">其他</a>
+            </div>
+        </div>
+    </div>
 </body>
+
 </html>

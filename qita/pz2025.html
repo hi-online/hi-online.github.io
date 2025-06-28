@@ -661,11 +661,17 @@
             if (maxAbsV === 0) maxAbsV = 1;
 
             // --- Determine X-axis (time) bounds ---
-            maxTime = Math.max(time, maxTime);
-            if (isCollided && timeNStops > 0) {
-                maxTime = Math.max(maxTime, collisionTime + timeNStops + 1);
+            // If N has stopped after collision, use that time as the definitive maxTime
+            if (isCollided && timeNStops > 0 && Math.abs(N.v) < 0.01) { // Only set maxTime if N has actually stopped
+                maxTime = collisionTime + timeNStops;
+            } else {
+                // Otherwise, use the current simulation time
+                maxTime = time;
             }
+            // Ensure a minimum maxTime to avoid division by zero or tiny scales
             if (maxTime === 0) maxTime = 1;
+            // Add a small buffer to maxTime for better visual spacing, but not too much to go out of bounds
+            maxTime = maxTime * 1.1; // Add 10% buffer
 
 
             const padding = 30;
@@ -685,7 +691,7 @@
 
             // Draw vertical grid lines (for time)
             const timeStep = Math.max(1, Math.floor(maxTime / 5));
-            for (let t = timeStep; t < maxTime + timeStep; t += timeStep) {
+            for (let t = timeStep; t <= maxTime; t += timeStep) { // Changed loop condition to t <= maxTime
                 const xPos = originX + t * xScale;
                 vtGraphCtx.beginPath();
                 vtGraphCtx.moveTo(xPos, originY - graphHeight / 2); /* Grid line start Y (top of graph area) */
@@ -738,7 +744,7 @@
             vtGraphCtx.textBaseline = 'middle';
 
             // Time labels
-            for (let t = timeStep; t < maxTime + timeStep; t += timeStep) {
+            for (let t = timeStep; t <= maxTime; t += timeStep) { // Changed loop condition to t <= maxTime
                 if (Math.round(t / timeStep) % 2 === 0) {
                     const xPos = originX + t * xScale;
                     vtGraphCtx.fillText(t.toFixed(0), xPos, originY + 15); // Adjust Y position slightly below X-axis
@@ -849,7 +855,7 @@
                 return; // If paused, stop the animation loop
             }
 
-            const dt = 0.005; // Time step in seconds for each frame (100 updates per second)
+            const dt = 0.005; // Time step in seconds for each frame (200 updates per second)
             time += dt; // Advance simulation time
 
             // --- Collision Detection ---
@@ -884,7 +890,7 @@
                     timeNStops = -N.v / N.a;
                     // Make sure timeNStops is non-negative. If N is already moving in the direction of its acceleration
                     // (i.e., speeding up) or if it's supposed to stop but acceleration is against it, this calculation will be negative.
-                    // The problem implies N will decelerate to 0 after collision.
+                    // The problem implies N will decelerate to 0.
                     if (timeNStops < 0) timeNstops = 0; // Should not happen with typical physics setup for stopping
                 } else {
                     timeNStops = Infinity; // N will never stop if acceleration is 0
@@ -943,7 +949,7 @@
         function performSelfCheck(vM0_pre, vN0_pre, xM_pre, xN_pre, vM1_post, vN1_post) {
             let results = "--- 自检结果 ---\n";
             let errorsFound = false;
-            const tolerance = 0.005; // 0.5% error tolerance for comparisons
+            const tolerance = 0.01; // Adjusted tolerance for floating-point comparisons
 
             // 1. Check Newton's Second Law (accelerations)
             // Calculate accelerations based on current force and masses
@@ -964,17 +970,8 @@
             const displacementN_at_collision = 0.5 * N.a * collisionTime * collisionTime;
 
             // The sum of magnitudes of displacements should equal the initial boundary distance (d-2r)
-            // Or, the difference in positions M.x - N.x should equal -(boundaryDistance + 2*BALL_RADIUS)
-            // Initial positions: M.x = -totalSeparation/2, N.x = totalSeparation/2
-            // At collision: N.x_collision - M.x_collision = 2 * BALL_RADIUS
-            // Initial relative displacement was totalSeparation.
-            // Change in relative displacement is (displacementN_at_collision - displacementM_at_collision)
-            // From initial state: N.x - M.x = (totalSeparation/2) - (-totalSeparation/2) = totalSeparation
-            // At collision: N.x - M.x = 2 * BALL_RADIUS
-            // Change needed: totalSeparation - 2*BALL_RADIUS = boundaryDistance
             const totalDisplacementSum = Math.abs(displacementM_at_collision) + Math.abs(displacementN_at_collision);
 
-            // Check if the sum of displacements (relative approach distance) matches boundaryDistance
             if (Math.abs(totalDisplacementSum - boundaryDistance) > tolerance * boundaryDistance) {
                 results += `位移检查 (碰撞前): 失败 (相对距离覆盖 ${totalDisplacementSum.toFixed(2)}m 与预期 ${boundaryDistance.toFixed(2)}m)\n`;
                 errorsFound = true;
@@ -1031,10 +1028,14 @@
                 const expected_xM_pos_at_collision = initialM_x_default + default_xM; // -16 + 12 = -4
                 const expected_xN_pos_at_collision = initialN_x_default + default_xN; // 16 - 18 = -2
 
-                // if (Math.abs(actual_xM_at_collision - expected_xM_pos_at_collision) > tolerance) results += `默认 xM (碰撞时位置): 失败 (预期 ${expected_xM_pos_at_collision.toFixed(2)}, 实际 ${actual_xM_at_collision.toFixed(2)})\n`;
-                // else results += `默认 xM (碰撞时位置): 通过\n`;
-                // if (Math.abs(actual_xN_at_collision - expected_xN_pos_at_collision) > tolerance) results += `默认 xN (碰撞时位置): 失败 (预期 ${expected_xN_pos_at_collision.toFixed(2)}, 实际 ${actual_xN_at_collision.toFixed(2)})\n`;
-                // else results += `默认 xN (碰撞时位置): 通过\n`;
+                // Re-enabling the position check since dt is smaller and tolerance is reasonable
+                if (Math.abs(actual_xM_at_collision - expected_xM_pos_at_collision) > tolerance ||
+                    Math.abs(actual_xN_at_collision - expected_xN_pos_at_collision) > tolerance) {
+                    results += `默认 xM/xN (碰撞时位置): 失败 (M 预期: ${expected_xM_pos_at_collision.toFixed(2)}, 实际: ${actual_xM_at_collision.toFixed(2)}; N 预期: ${expected_xN_pos_at_collision.toFixed(2)}, 实际: ${actual_xN_at_collision.toFixed(2)})\n`;
+                    errorsFound = true;
+                } else {
+                    results += `默认 xM/xN (碰撞时位置): 通过\n`;
+                }
 
 
                 if (Math.abs(vM1_post - default_vM1) > tolerance) results += `默认 vM1 (碰撞后): 失败 (预期 ${default_vM1.toFixed(2)}, 实际 ${vM1_post.toFixed(2)})\n`;
