@@ -949,7 +949,7 @@
         function performSelfCheck(vM0_pre, vN0_pre, xM_pre, xN_pre, vM1_post, vN1_post) {
             let results = "--- 自检结果 ---\n";
             let errorsFound = false;
-            const tolerance = 0.01; // Adjusted tolerance for floating-point comparisons
+            const tolerance = 0.005; // Adjusted tolerance for floating-point comparisons
 
             // 1. Check Newton's Second Law (accelerations)
             // Calculate accelerations based on current force and masses
@@ -1029,9 +1029,9 @@
                 const expected_xN_pos_at_collision = initialN_x_default + default_xN; // 16 - 18 = -2
 
                 // Re-enabling the position check since dt is smaller and tolerance is reasonable
-                if (Math.abs(actual_xM_at_collision - expected_xM_pos_at_collision) > tolerance ||
-                    Math.abs(actual_xN_at_collision - expected_xN_pos_at_collision) > tolerance) {
-                    results += `默认 xM/xN (碰撞时位置): 失败 (M 预期: ${expected_xM_pos_at_collision.toFixed(2)}, 实际: ${actual_xM_at_collision.toFixed(2)}; N 预期: ${expected_xN_pos_at_collision.toFixed(2)}, 实际: ${actual_xN_at_collision.toFixed(2)})\n`;
+                if (Math.abs(actual_xM_at_collision - expected_xM_pos_at_collision) > Math.abs(tolerance * expected_xM_pos_at_collision) ||
+                    Math.abs(actual_xN_at_collision - expected_xN_pos_at_collision) > Math.abs(tolerance * expected_xM_pos_at_collision)) {
+                    results += `默认 xM/xN (碰撞时位置): 失败 (M 预期: ${expected_xM_pos_at_collision.toFixed(3)}, 实际: ${actual_xM_at_collision.toFixed(3)}; N 预期: ${expected_xN_pos_at_collision.toFixed(3)}, 实际: ${actual_xN_at_collision.toFixed(3)})\n`;
                     errorsFound = true;
                 } else {
                     results += `默认 xM/xN (碰撞时位置): 通过\n`;
