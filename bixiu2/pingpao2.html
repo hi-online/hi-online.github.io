@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>高级交互式抛体运动实验室 (双球对比 - 实时标注版)</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+        .container {
+            display: flex;
+            gap: 30px;
+            align-items: flex-start; /* Align items to the top */
+        }
+        .controls, .data-panel {
+            width: 250px;
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            flex-shrink: 0;
+        }
+        h3 {
+            margin-top: 0;
+            border-bottom: 1px solid #e8e8e8;
+            padding-bottom: 10px;
+            color: #333;
+        }
+        h4 {
+            margin-top: 15px;
+            margin-bottom: 10px;
+            color: #555;
+            border-bottom: 1px dashed #eee;
+            padding-bottom: 5px;
+        }
+        .control-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-top: 10px;
+        }
+        #launchAllButton { background-color: #007bff; }
+        #launchAllButton:hover { background-color: #0056b3; }
+        #pauseButton { background-color: #ffc107; color: #212529; }
+        #pauseButton:hover { background-color: #e0a800; }
+        #clearButton { background-color: #6c757d; }
+        #clearButton:hover { background-color: #5a6268; }
+        canvas {
+            border: 1px solid #ccc;
+            background-color: #ffffff;
+            border-radius: 8px;
+        }
+        .data-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .data-item span:first-child { font-weight: 500; color: #555; }
+        .data-item span:last-child { font-family: 'Courier New', Courier, monospace; font-weight: bold; color: #0056b3; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="controls">
+        <h3>球1参数 (红色)</h3>
+        <div class="control-group">
+            <label for="velocity1">初始速度 (m/s): <span id="velocityValue1">50</span></label>
+            <input type="range" id="velocity1" min="10" max="100" value="50">
+        </div>
+        <div class="control-group">
+            <label for="angle1">发射角度 (°): <span id="angleValue1">45</span></label>
+            <input type="range" id="angle1" min="0" max="90" value="45">
+        </div>
+        <div class="control-group">
+            <label for="gravity1">重力 (m/s²): <span id="gravityValue1">9.8</span></label>
+            <input type="range" id="gravity1" min="1" max="25" value="9.8" step="0.1">
+        </div>
+
+        <h3>球2参数 (蓝色)</h3>
+        <div class="control-group">
+            <label for="velocity2">初始速度 (m/s): <span id="velocityValue2">60</span></label>
+            <input type="range" id="velocity2" min="10" max="100" value="60">
+        </div>
+        <div class="control-group">
+            <label for="angle2">发射角度 (°): <span id="angleValue2">30</span></label>
+            <input type="range" id="angle2" min="0" max="90" value="30">
+        </div>
+        <div class="control-group">
+            <label for="gravity2">重力 (m/s²): <span id="gravityValue2">9.8</span></label>
+            <input type="range" id="gravity2" min="1" max="25" value="9.8" step="0.1">
+        </div>
+
+        <button id="launchAllButton">发射所有球 / 重置</button>
+        <button id="pauseButton">暂停</button>
+        <button id="clearButton">清空轨迹</button>
+    </div>
+
+    <canvas id="physicsCanvas" width="800" height="600"></canvas>
+
+    <div class="data-panel">
+        <h3>实时数据</h3>
+        <div class="data-item"><span>时间 (s)</span><span id="time">0.00</span></div>
+        
+        <h4>球1数据 (红色)</h4>
+        <div class="data-item"><span>水平位移 (m)</span><span id="xPos1">0.00</span></div>
+        <div class="data-item"><span>竖直位移 (m)</span><span id="yPos1">0.00</span></div>
+        <div class="data-item"><span>水平速度 (m/s)</span><span id="xVel1">0.00</span></div>
+        <div class="data-item"><span>竖直速度 (m/s)</span><span id="yVel1">0.00</span></div>
+
+        <h4>球2数据 (蓝色)</h4>
+        <div class="data-item"><span>水平位移 (m)</span><span id="xPos2">0.00</span></div>
+        <div class="data-item"><span>竖直位移 (m)</span><span id="yPos2">0.00</span></div>
+        <div class="data-item"><span>水平速度 (m/s)</span><span id="xVel2">0.00</span></div>
+        <div class="data-item"><span>竖直速度 (m/s)</span><span id="yVel2">0.00</span></div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('physicsCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Ball 1 Controls
+    const velocitySlider1 = document.getElementById('velocity1');
+    const angleSlider1 = document.getElementById('angle1');
+    const gravitySlider1 = document.getElementById('gravity1');
+    const velocityValueSpan1 = document.getElementById('velocityValue1');
+    const angleValueSpan1 = document.getElementById('angleValue1');
+    const gravityValueSpan1 = document.getElementById('gravityValue1');
+
+    // Ball 2 Controls
+    const velocitySlider2 = document.getElementById('velocity2');
+    const angleSlider2 = document.getElementById('angle2');
+    const gravitySlider2 = document.getElementById('gravity2');
+    const velocityValueSpan2 = document.getElementById('velocityValue2');
+    const angleValueSpan2 = document.getElementById('angleValue2');
+    const gravityValueSpan2 = document.getElementById('gravityValue2');
+
+    // Global Controls
+    const launchAllButton = document.getElementById('launchAllButton');
+    const pauseButton = document.getElementById('pauseButton');
+    const clearButton = document.getElementById('clearButton');
+
+    // Data Display
+    const timeSpan = document.getElementById('time');
+    const xPos1Span = document.getElementById('xPos1');
+    const yPos1Span = document.getElementById('yPos1');
+    const xVel1Span = document.getElementById('xVel1');
+    const yVel1Span = document.getElementById('yVel1');
+    const xPos2Span = document.getElementById('xPos2');
+    const yPos2Span = document.getElementById('yPos2');
+    const xVel2Span = document.getElementById('xVel2');
+    const yVel2Span = document.getElementById('yVel2');
+
+    let animationId;
+    let isPaused = false;
+    let globalTime = 0;
+    let balls = []; // Array to hold ball objects
+    let allTrajectories = []; // Stores completed trajectories for both balls
+    let pixelsPerMeter;
+    const padding = 50;
+    const vectorScale = 3; // Scale factor for velocity vectors
+
+    // Event Listeners for sliders
+    velocitySlider1.oninput = () => { velocityValueSpan1.textContent = velocitySlider1.value; };
+    angleSlider1.oninput = () => { angleValueSpan1.textContent = angleSlider1.value; };
+    gravitySlider1.oninput = () => { gravityValueSpan1.textContent = gravitySlider1.value; };
+    velocitySlider2.oninput = () => { velocityValueSpan2.textContent = velocitySlider2.value; };
+    angleSlider2.oninput = () => { angleValueSpan2.textContent = angleSlider2.value; };
+    gravitySlider2.oninput = () => { gravityValueSpan2.textContent = gravitySlider2.value; };
+
+    // Event Listeners for buttons
+    launchAllButton.onclick = launchAll;
+    pauseButton.onclick = togglePause;
+    clearButton.onclick = clearAll;
+
+    function createBall(id, v0, angleDeg, g, color) {
+        const angleRad = angleDeg * (Math.PI / 180);
+        return {
+            id: id,
+            color: color,
+            t: 0,
+            x: 0,
+            y: 0,
+            vx: v0 * Math.cos(angleRad),
+            vy_initial: v0 * Math.sin(angleRad),
+            g: g,
+            currentTrajectory: { 
+                path: [], 
+                params: { v0, angle: angleDeg, g },
+                peakPoint: null // Added to store peak point for immediate annotation
+            },
+            isAnimating: true, // True if ball is still in the air
+            peakReached: false // Flag to track if peak has been passed
+        };
+    }
+
+    function launchAll() {
+        if (animationId) cancelAnimationFrame(animationId);
+        isPaused = false;
+        pauseButton.textContent = '暂停';
+
+        // Store current trajectories as historical if they exist
+        balls.forEach(ball => {
+            if (ball.currentTrajectory.path.length > 0) {
+                allTrajectories.push(ball.currentTrajectory);
+            }
+        });
+
+        // Initialize balls based on slider values
+        balls = [
+            createBall(1, parseFloat(velocitySlider1.value), parseFloat(angleSlider1.value), parseFloat(gravitySlider1.value), 'red'),
+            createBall(2, parseFloat(velocitySlider2.value), parseFloat(angleSlider2.value), parseFloat(gravitySlider2.value), 'blue')
+        ];
+
+        globalTime = 0;
+        updateScale(); // Update scale based on potential max ranges of both balls
+        updateDataPanel(0, 0, 0, 0, 0, 0, 0, 0, 0); // Clear data panel
+        animationId = requestAnimationFrame(animate);
+    }
+
+    function togglePause() {
+        if (!animationId && !isPaused) return; 
+
+        isPaused = !isPaused;
+        if (isPaused) {
+            pauseButton.textContent = '继续';
+            cancelAnimationFrame(animationId);
+        } else {
+            pauseButton.textContent = '暂停';
+            animationId = requestAnimationFrame(animate);
+        }
+    }
+
+    function updateScale() {
+        let globalMaxX = 0, globalMaxY = 0;
+        const trajectoriesToConsider = [...allTrajectories];
+        balls.forEach(ball => trajectoriesToConsider.push(ball.currentTrajectory));
+
+        trajectoriesToConsider.forEach(trajData => {
+            if (!trajData.params) return;
+            const p = trajData.params;
+            const historical_vx = p.v0 * Math.cos(p.angle * Math.PI / 180);
+            const historical_vy = p.v0 * Math.sin(p.angle * Math.PI / 180);
+            if (p.g > 0) {
+                const flightTime = 2 * historical_vy / p.g;
+                const xMax = historical_vx * flightTime;
+                const yMax = (historical_vy ** 2) / (2 * p.g);
+                if (xMax > globalMaxX) globalMaxX = xMax;
+                if (yMax > globalMaxY) globalMaxY = yMax;
+            }
+        });
+
+        const effectiveW = canvas.width - 2 * padding;
+        const effectiveH = canvas.height - 2 * padding;
+        const scaleX = (globalMaxX > 0) ? effectiveW / globalMaxX : 1;
+        const scaleY = (globalMaxY > 0) ? effectiveH / globalMaxY : 1;
+
+        pixelsPerMeter = Math.min(scaleX, scaleY);
+        if (!isFinite(pixelsPerMeter) || pixelsPerMeter === 0) pixelsPerMeter = 10;
+    }
+
+    function animate() {
+        if (isPaused) return;
+
+        const dt = 1 / 60;
+        globalTime += dt;
+
+        let anyBallAnimating = false;
+
+        balls.forEach(ball => {
+            if (ball.isAnimating) {
+                ball.t += dt;
+                ball.x = ball.vx * ball.t;
+                ball.y = ball.vy_initial * ball.t - 0.5 * ball.g * ball.t * ball.t;
+                const currentVy = ball.vy_initial - ball.g * ball.t;
+
+                // Check for peak point and mark for annotation
+                if (currentVy < 0 && !ball.peakReached) {
+                    ball.peakReached = true;
+                    ball.currentTrajectory.peakPoint = { x: ball.x, y: ball.y };
+                }
+
+                ball.currentTrajectory.path.push({ x: ball.x, y: ball.y });
+
+                if (ball.y < 0 && ball.t > 0) { // Ball has landed (or gone below ground)
+                    ball.isAnimating = false;
+                    // Adjust final position to be exactly on the ground for drawing
+                    ball.y = 0;
+                    ball.x = ball.vx * (2 * ball.vy_initial / ball.g); // Final x position
+                    // Ensure peak point is set even if it lands before peak detection (e.g., angle 0)
+                    if (!ball.peakReached && ball.currentTrajectory.path.length > 1) {
+                        ball.peakReached = true;
+                        // For horizontal launch, peak is launch point
+                        ball.currentTrajectory.peakPoint = { x: 0, y: 0 }; 
+                    }
+                } else {
+                    anyBallAnimating = true;
+                }
+            }
+        });
+
+        draw();
+        updateDataPanel(globalTime, 
+                        balls[0].x, balls[0].y, balls[0].vx, balls[0].vy_initial - balls[0].g * balls[0].t,
+                        balls[1].x, balls[1].y, balls[1].vx, balls[1].vy_initial - balls[1].g * balls[1].t);
+
+        if (anyBallAnimating) {
+            animationId = requestAnimationFrame(animate);
+        } else {
+            cancelAnimationFrame(animationId);
+            animationId = null;
+            isPaused = false;
+            pauseButton.textContent = '暂停';
+        }
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const originX = padding;
+        const originY = canvas.height - padding;
+
+        // Draw axes
+        ctx.beginPath();
+        ctx.moveTo(originX, 0); ctx.lineTo(originX, canvas.height);
+        ctx.moveTo(0, originY); ctx.lineTo(canvas.width, originY);
+        ctx.strokeStyle = '#ccc'; ctx.stroke();
+
+        // Draw all historical trajectories
+        allTrajectories.forEach(trajData => {
+            if (!trajData.path || trajData.path.length === 0) return;
+            ctx.beginPath();
+            ctx.moveTo(originX, originY);
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+            ctx.lineWidth = 1;
+            trajData.path.forEach(p => {
+                ctx.lineTo(originX + p.x * pixelsPerMeter, originY - p.y * pixelsPerMeter);
+            });
+            ctx.stroke();
+
+            // Draw label for historical trajectories
+            if (trajData.peakPoint) {
+                const labelX = originX + trajData.peakPoint.x * pixelsPerMeter;
+                const labelY = originY - trajData.peakPoint.y * pixelsPerMeter - 10;
+                const p = trajData.params;
+                ctx.font = '12px Arial';
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.textAlign = 'center';
+                ctx.fillText(`v=${p.v0}, θ=${p.angle}°, g=${p.g}`, labelX, labelY);
+            }
+        });
+
+        // Draw current balls and their trajectories/vectors
+        balls.forEach(ball => {
+            if (!ball.currentTrajectory.path || ball.currentTrajectory.path.length === 0) return;
+
+            // Draw current trajectory
+            ctx.beginPath();
+            ctx.moveTo(originX, originY);
+            ctx.strokeStyle = ball.color === 'red' ? 'rgba(255, 0, 0, 0.7)' : 'rgba(0, 0, 255, 0.7)';
+            ctx.lineWidth = 2;
+            ball.currentTrajectory.path.forEach(p => {
+                ctx.lineTo(originX + p.x * pixelsPerMeter, originY - p.y * pixelsPerMeter);
+            });
+            ctx.stroke();
+
+            // Draw label for current trajectory if peak is reached
+            if (ball.peakReached && ball.currentTrajectory.peakPoint) {
+                const labelX = originX + ball.currentTrajectory.peakPoint.x * pixelsPerMeter;
+                const labelY = originY - ball.currentTrajectory.peakPoint.y * pixelsPerMeter - 10;
+                const p = ball.currentTrajectory.params;
+                ctx.font = '12px Arial';
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.textAlign = 'center';
+                ctx.fillText(`v=${p.v0}, θ=${p.angle}°, g=${p.g}`, labelX, labelY);
+            }
+
+            // Draw ball and vectors only if animating or paused
+            if (ball.isAnimating || isPaused) {
+                const ballCanvasX = originX + ball.x * pixelsPerMeter;
+                const ballCanvasY = originY - ball.y * pixelsPerMeter;
+                
+                // Draw ball
+                ctx.beginPath();
+                ctx.arc(ballCanvasX, ballCanvasY, 5, 0, Math.PI * 2);
+                ctx.fillStyle = ball.color;
+                ctx.fill();
+
+                // Calculate current velocity components for vector drawing
+                const currentVy = ball.vy_initial - ball.g * ball.t;
+
+                // Draw velocity vectors
+                const vx_dx = ball.vx * vectorScale;
+                const vy_dy = -currentVy * vectorScale; // Canvas y is inverted
+                const resultant_v_magnitude = Math.sqrt(ball.vx * ball.vx + currentVy * currentVy);
+                const resultant_v_angle = Math.atan2(vy_dy, vx_dx); 
+                const resultant_v_dx = resultant_v_magnitude * Math.cos(resultant_v_angle) * vectorScale;
+                const resultant_v_dy = resultant_v_magnitude * Math.sin(resultant_v_angle) * vectorScale;
+
+                drawArrow(ballCanvasX, ballCanvasY, vx_dx, 0, 'green'); // vx
+                drawArrow(ballCanvasX, ballCanvasY, 0, vy_dy, 'purple'); // vy
+                drawArrow(ballCanvasX, ballCanvasY, resultant_v_dx, resultant_v_dy, 'orange'); // resultant v
+
+                // Draw parallelogram lines
+                ctx.beginPath();
+                ctx.strokeStyle = 'rgba(150, 150, 150, 0.7)'; 
+                ctx.setLineDash([5, 5]); 
+                ctx.lineWidth = 1;
+
+                ctx.moveTo(ballCanvasX + vx_dx, ballCanvasY);
+                ctx.lineTo(ballCanvasX + resultant_v_dx, ballCanvasY + resultant_v_dy);
+
+                ctx.moveTo(ballCanvasX, ballCanvasY + vy_dy);
+                ctx.lineTo(ballCanvasX + resultant_v_dx, ballCanvasY + resultant_v_dy);
+
+                ctx.stroke();
+                ctx.setLineDash([]); 
+                ctx.lineWidth = 1; 
+            }
+        });
+        ctx.textAlign = 'left';
+    }
+
+    function drawArrow(fromX, fromY, dx, dy, color) {
+        const headlen = 10; 
+        const angle = Math.atan2(dy, dx);
+        ctx.beginPath();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.moveTo(fromX, fromY);
+        ctx.lineTo(fromX + dx, fromY + dy);
+        ctx.lineTo(fromX + dx - headlen * Math.cos(angle - Math.PI / 6), fromY + dy - headlen * Math.sin(angle - Math.PI / 6));
+        ctx.moveTo(fromX + dx, fromY + dy);
+        ctx.lineTo(fromX + dx - headlen * Math.cos(angle + Math.PI / 6), fromY + dy - headlen * Math.sin(angle + Math.PI / 6));
+        ctx.stroke();
+        ctx.lineWidth = 1;
+    }
+    
+    function updateDataPanel(time, x1, y1, vx1, vy1, x2, y2, vx2, vy2) {
+        timeSpan.textContent = time.toFixed(2);
+        xPos1Span.textContent = x1.toFixed(2);
+        yPos1Span.textContent = y1.toFixed(2);
+        xVel1Span.textContent = vx1.toFixed(2);
+        yVel1Span.textContent = vy1.toFixed(2);
+        xPos2Span.textContent = x2.toFixed(2);
+        yPos2Span.textContent = y2.toFixed(2);
+        xVel2Span.textContent = vx2.toFixed(2);
+        yVel2Span.textContent = vy2.toFixed(2);
+    }
+
+    function clearAll() {
+        if (animationId) cancelAnimationFrame(animationId);
+        animationId = null;
+        isPaused = false;
+        pauseButton.textContent = '暂停';
+        allTrajectories = [];
+        balls = [];
+        globalTime = 0;
+        draw(); 
+        updateDataPanel(0,0,0,0,0,0,0,0,0);
+    }
+
+    draw(); 
+
+</script>
+</body>
+</html>
